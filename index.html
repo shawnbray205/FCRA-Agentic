@@ -615,6 +615,96 @@ body {
   border-top: 1px solid var(--border-color);
 }
 
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-top: 8px;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent-gold);
+  background: rgba(212,168,67,0.06);
+}
+.upload-zone input[type="file"] { display: none; }
+.upload-zone .upload-icon { font-size: 24px; margin-bottom: 6px; }
+.upload-zone .upload-label { font-size: 13px; color: var(--text-secondary); }
+.upload-zone .upload-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.upload-file-list {
+  margin-top: 8px;
+}
+.upload-file-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; background: var(--bg-tertiary);
+  border-radius: 6px; margin-bottom: 4px; font-size: 12px;
+}
+.upload-file-item .file-name { flex: 1; color: var(--text-primary); }
+.upload-file-item .file-size { color: var(--text-muted); font-size: 11px; }
+.upload-file-item .remove-file {
+  color: var(--status-error); cursor: pointer; font-size: 14px;
+  background: none; border: none; padding: 0 4px;
+}
+
+.doc-recommendations {
+  margin-top: 12px; padding: 12px 16px;
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.15);
+  border-radius: var(--radius);
+}
+.doc-recommendations h4 {
+  font-size: 12px; color: #60a5fa; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 8px;
+}
+.doc-rec-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; margin-bottom: 4px; color: var(--text-secondary);
+}
+.doc-rec-item .req-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(239,68,68,0.15); color: #f87171; font-weight: 600;
+}
+.doc-rec-item .opt-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(100,116,139,0.2); color: #94a3b8;
+}
+
+/* Document cards in Documents tab */
+.doc-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; background: var(--bg-tertiary);
+  border-radius: var(--radius); margin-bottom: 8px;
+  border-left: 3px solid var(--accent-gold);
+}
+.doc-card .doc-icon { font-size: 20px; }
+.doc-card .doc-info { flex: 1; }
+.doc-card .doc-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.doc-card .doc-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.doc-card .doc-actions { display: flex; gap: 6px; }
+
+/* Gap upload button */
+.gap-upload-btn {
+  margin-top: 8px; padding: 4px 12px;
+  font-size: 11px; background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.3); border-radius: 4px;
+  color: #60a5fa; cursor: pointer; display: inline-flex;
+  align-items: center; gap: 4px;
+}
+.gap-upload-btn:hover { background: rgba(59,130,246,0.2); }
+
+/* Upload progress */
+.upload-progress {
+  margin-top: 6px; height: 4px; background: var(--bg-primary);
+  border-radius: 2px; overflow: hidden;
+}
+.upload-progress-bar {
+  height: 100%; background: var(--accent-gold);
+  transition: width 0.3s; border-radius: 2px;
+}
+
 /* Print styles */
 @media print {
   #case-sidebar, #config-bar, #status-bar, .btn, .attorney-actions { display: none !important; }
@@ -680,6 +770,62 @@ const STAGE_LABELS = {
   letter: 'Letter', comms: 'Comms', review: 'Review', closed: 'Closed'
 };
 
+// ==================== ERROR-TYPE DOCUMENT MAP ====================
+const ERROR_TYPE_DOCS = {
+  inaccurate_information: [
+    { type: 'credit_report', label: 'Credit Report (all 3 bureaus)', required: true },
+    { type: 'dispute_letter', label: 'Prior Dispute Letter(s)', required: false },
+    { type: 'proof_of_accuracy', label: 'Proof of Correct Information (e.g., bank statements)', required: false }
+  ],
+  mixed_file: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'identity_docs', label: 'Identity Documents (SSN card, Driver License)', required: true },
+    { type: 'mixed_file_evidence', label: 'Evidence of Mixed Information', required: false }
+  ],
+  identity_theft: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'police_report', label: 'Police/FTC Identity Theft Report', required: true },
+    { type: 'identity_docs', label: 'Identity Documents', required: true },
+    { type: 'fraud_affidavit', label: 'Fraud Affidavit', required: false }
+  ],
+  reinvestigation_failure: [
+    { type: 'credit_report', label: 'Credit Report (before & after dispute)', required: true },
+    { type: 'dispute_letter', label: 'Original Dispute Letter', required: true },
+    { type: 'cra_response', label: 'CRA Response / Investigation Results', required: true },
+    { type: 'supporting_docs', label: 'Evidence Submitted with Dispute', required: false }
+  ],
+  furnisher_violation: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'account_statements', label: 'Account Statements', required: true },
+    { type: 'dispute_letter', label: 'Prior Dispute to Furnisher', required: false },
+    { type: 'furnisher_response', label: 'Furnisher Response', required: false }
+  ],
+  unauthorized_inquiry: [
+    { type: 'credit_report', label: 'Credit Report Showing Inquiry', required: true },
+    { type: 'denial_letter', label: 'Credit Denial Letter (if applicable)', required: false },
+    { type: 'correspondence', label: 'Any Correspondence with Inquiring Party', required: false }
+  ],
+  obsolete_data: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'proof_of_age', label: 'Proof of Account Age / Discharge Date', required: false }
+  ],
+  background_check: [
+    { type: 'background_report', label: 'Background Check Report', required: true },
+    { type: 'adverse_action', label: 'Adverse Action Notice', required: true },
+    { type: 'authorization', label: 'Original Authorization Form', required: false }
+  ],
+  medical_debt: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'medical_records', label: 'Medical Bills / Insurance EOBs', required: true },
+    { type: 'insurance_docs', label: 'Insurance Coverage Documentation', required: false }
+  ],
+  credit_report: [
+    { type: 'credit_report', label: 'Credit Report (all 3 bureaus)', required: true },
+    { type: 'dispute_letter', label: 'Prior Dispute Letter(s)', required: false },
+    { type: 'supporting_docs', label: 'Any Supporting Documentation', required: false }
+  ]
+};
+
 // ==================== STATE ====================
 let state = {
   cases: [],
@@ -701,14 +847,15 @@ async function fetchCases() {
 }
 
 async function fetchCaseDetail(caseId) {
-  const [caseRes, triageRes, parsedRes, chronRes, letterRes, commsRes, activityRes] = await Promise.all([
+  const [caseRes, triageRes, parsedRes, chronRes, letterRes, commsRes, activityRes, docsRes] = await Promise.all([
     supabase.from('fcra_cases').select('*').eq('id', caseId).single(),
     supabase.from('fcra_triage_results').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
     supabase.from('fcra_parsed_reports').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
     supabase.from('fcra_case_chronology').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
     supabase.from('fcra_letters').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
     supabase.from('fcra_communications').select('*').eq('case_id', caseId).order('created_at', { ascending: false }),
-    supabase.from('fcra_case_activity').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50)
+    supabase.from('fcra_case_activity').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50),
+    supabase.from('fcra_case_documents').select('*').eq('case_id', caseId).order('created_at', { ascending: false })
   ]);
 
   return {
@@ -718,7 +865,8 @@ async function fetchCaseDetail(caseId) {
     chronology: chronRes.data?.[0] || null,
     letter: letterRes.data?.[0] || null,
     communications: commsRes.data || [],
-    activity: activityRes.data || []
+    activity: activityRes.data || [],
+    documents: docsRes.data || []
   };
 }
 
@@ -796,7 +944,7 @@ function showIntakeForm() {
       </div>
       <div class="form-group">
         <label>Error Type <span class="required">*</span></label>
-        <select id="field-error_type">
+        <select id="field-error_type" onchange="App.onErrorTypeChange(this.value)">
           <option value="">-- Select --</option>
           <option value="inaccurate_information">Inaccurate Information</option>
           <option value="mixed_file">Mixed File</option>
@@ -809,6 +957,24 @@ function showIntakeForm() {
           <option value="medical_debt">Medical Debt</option>
           <option value="credit_report">Credit Report Error</option>
         </select>
+      </div>
+      <div id="doc-upload-section" style="display:none;">
+        <div class="doc-recommendations" id="doc-recommendations"></div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Upload Documents</label>
+          <div class="upload-zone" id="upload-zone"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');App.handleFileDrop(event)">
+            <input type="file" id="file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.csv"
+                   onchange="App.handleFileSelect(event)">
+            <div class="upload-icon">&#128206;</div>
+            <div class="upload-label">Click or drag files here</div>
+            <div class="upload-hint">PDF, images, Word docs &mdash; max 10MB each</div>
+          </div>
+          <div class="upload-file-list" id="file-list"></div>
+        </div>
       </div>
       <div class="form-group">
         <label>Discovery Date</label>
@@ -885,6 +1051,24 @@ async function submitIntake() {
 
     const result = await res.json();
     setStatus('Pipeline completed: ' + (result.stages_completed?.length || 0) + ' stages');
+
+    // Upload any pending documents
+    if (result.case_id && pendingFiles.length > 0) {
+      setStatus('Uploading ' + pendingFiles.length + ' document(s)...');
+      const uploaded = await uploadCaseDocuments(result.case_id, pendingFiles, 'intake');
+      if (uploaded.length) {
+        await supabase.from('fcra_case_activity').insert({
+          case_id: result.case_id,
+          activity_type: 'document_upload',
+          stage: 'intake',
+          actor: 'dashboard',
+          summary: 'Uploaded ' + uploaded.length + ' document(s) at intake',
+          details: { files: uploaded.map(u => u.file_name) }
+        });
+        setStatus('Pipeline done. ' + uploaded.length + ' document(s) uploaded.');
+      }
+      pendingFiles = [];
+    }
 
     // Refresh case list and select the new case
     state.cases = await fetchCases();
@@ -1030,6 +1214,7 @@ function renderWorkspace() {
     { key: 'chronology', label: 'Chronology', data: d.chronology },
     { key: 'letter', label: 'Dispute Letter', data: d.letter },
     { key: 'comms', label: 'Communications', data: d.communications?.length > 0 },
+    { key: 'documents', label: 'Documents', data: d.documents?.length > 0 },
     { key: 'activity', label: 'Activity Log', data: d.activity?.length > 0 }
   ];
 
@@ -1049,6 +1234,7 @@ function renderWorkspace() {
     case 'chronology': contentHtml = renderChronologyTab(d); break;
     case 'letter': contentHtml = renderLetterTab(d); break;
     case 'comms': contentHtml = renderCommsTab(d); break;
+    case 'documents': contentHtml = renderDocumentsTab(d); break;
     case 'activity': contentHtml = renderActivityTab(d); break;
   }
 
@@ -1208,6 +1394,7 @@ function renderChronologyTab(d) {
         ${g.fcra_section ? `<div style="color:#60a5fa;font-size:12px;margin-bottom:4px;">FCRA ${escHtml(g.fcra_section)}</div>` : ''}
         <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(g.recommendation || '')}</div>
         ${g.legal_significance ? `<div style="color:#94a3b8;font-size:12px;font-style:italic;">${escHtml(g.legal_significance)}</div>` : ''}
+        <button class="gap-upload-btn" onclick="App.triggerGapUpload('${escAttr(g.gap || '')}')">&#128206; Upload Document</button>
       </div>`;
     }).join('')}</div>`, true);
   }
@@ -1341,6 +1528,217 @@ function renderActivityTab(d) {
   return html;
 }
 
+// ==================== DOCUMENT UPLOAD ====================
+let pendingFiles = []; // files queued during intake
+
+function onErrorTypeChange(errorType) {
+  const section = document.getElementById('doc-upload-section');
+  const recsEl = document.getElementById('doc-recommendations');
+  if (!errorType || !ERROR_TYPE_DOCS[errorType]) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  const docs = ERROR_TYPE_DOCS[errorType];
+  recsEl.innerHTML = `<h4>Recommended Documents for ${errorType.replace(/_/g, ' ')}</h4>` +
+    docs.map(d => `<div class="doc-rec-item">
+      <span>${d.label}</span>
+      <span class="${d.required ? 'req-badge' : 'opt-badge'}">${d.required ? 'Required' : 'Optional'}</span>
+    </div>`).join('');
+}
+
+function handleFileSelect(event) {
+  const files = Array.from(event.target.files || []);
+  addPendingFiles(files);
+  event.target.value = '';
+}
+
+function handleFileDrop(event) {
+  const files = Array.from(event.dataTransfer.files || []);
+  addPendingFiles(files);
+}
+
+function addPendingFiles(files) {
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  for (const f of files) {
+    if (f.size > maxSize) { setStatus('File too large: ' + f.name + ' (max 10MB)'); continue; }
+    if (pendingFiles.some(p => p.name === f.name && p.size === f.size)) continue;
+    pendingFiles.push(f);
+  }
+  renderPendingFiles();
+}
+
+function removePendingFile(idx) {
+  pendingFiles.splice(idx, 1);
+  renderPendingFiles();
+}
+
+function renderPendingFiles() {
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  if (pendingFiles.length === 0) { list.innerHTML = ''; return; }
+  list.innerHTML = pendingFiles.map((f, i) => `<div class="upload-file-item">
+    <span class="doc-icon">&#128196;</span>
+    <span class="file-name">${escHtml(f.name)}</span>
+    <span class="file-size">${(f.size / 1024).toFixed(0)} KB</span>
+    <button class="remove-file" onclick="App.removePendingFile(${i})" title="Remove">&times;</button>
+  </div>`).join('');
+}
+
+async function uploadCaseDocuments(caseId, files, source = 'intake', gapRef = null) {
+  const results = [];
+  for (const file of files) {
+    const filePath = `${caseId}/${Date.now()}_${file.name}`;
+    const { error: uploadErr } = await supabase.storage
+      .from('case-documents')
+      .upload(filePath, file, { contentType: file.type, upsert: false });
+
+    if (uploadErr) {
+      console.error('Upload error:', uploadErr);
+      setStatus('Upload failed: ' + file.name);
+      continue;
+    }
+
+    // Guess document type from filename or default
+    let docType = 'supporting_docs';
+    const lower = file.name.toLowerCase();
+    if (lower.includes('credit') && lower.includes('report')) docType = 'credit_report';
+    else if (lower.includes('dispute')) docType = 'dispute_letter';
+    else if (lower.includes('police') || lower.includes('ftc')) docType = 'police_report';
+    else if (lower.includes('identity') || lower.includes('license') || lower.includes('ssn')) docType = 'identity_docs';
+    else if (lower.includes('statement')) docType = 'account_statements';
+    else if (lower.includes('background')) docType = 'background_report';
+    else if (lower.includes('adverse')) docType = 'adverse_action';
+    else if (lower.includes('medical') || lower.includes('eob')) docType = 'medical_records';
+
+    const { error: metaErr } = await supabase.from('fcra_case_documents').insert({
+      case_id: caseId,
+      document_type: docType,
+      file_name: file.name,
+      file_path: filePath,
+      file_size: file.size,
+      mime_type: file.type || 'application/octet-stream',
+      upload_source: source,
+      gap_reference: gapRef,
+      uploaded_by: 'dashboard'
+    });
+
+    if (metaErr) console.error('Metadata insert error:', metaErr);
+    else results.push({ file_name: file.name, file_path: filePath });
+  }
+  return results;
+}
+
+// Gap-specific upload (from chronology gap cards)
+function triggerGapUpload(gapTitle) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.csv';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setStatus('Uploading documents for gap: ' + gapTitle + '...');
+    const results = await uploadCaseDocuments(state.currentCaseId, files, 'gap_resolution', gapTitle);
+    if (results.length) {
+      setStatus(results.length + ' document(s) uploaded for gap resolution');
+      // Log activity
+      await supabase.from('fcra_case_activity').insert({
+        case_id: state.currentCaseId,
+        activity_type: 'document_upload',
+        stage: 'chronology',
+        actor: 'dashboard',
+        summary: 'Uploaded ' + results.length + ' doc(s) to resolve gap: ' + gapTitle,
+        details: { gap: gapTitle, files: results.map(r => r.file_name) }
+      });
+      // Refresh case data
+      state.caseData = await fetchCaseDetail(state.currentCaseId);
+      renderWorkspace();
+    }
+  };
+  input.click();
+}
+
+// ==================== RENDER: DOCUMENTS TAB ====================
+function renderDocumentsTab(d) {
+  const docs = d.documents || [];
+  let html = '<div class="stage-content">';
+
+  // Upload button
+  html += `<div style="margin-bottom:16px;">
+    <button class="btn btn-primary" onclick="App.triggerDocUpload()" style="font-size:13px;padding:8px 16px;">
+      &#128206; Upload Documents
+    </button>
+  </div>`;
+
+  if (!docs.length) {
+    html += '<div class="stage-empty">No documents uploaded yet. Use the button above or upload from gap cards in the Chronology tab.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${docs.length}</div><div class="card-label">Total Documents</div></div>
+    <div class="summary-card"><div class="card-value">${docs.filter(d => d.upload_source === 'intake').length}</div><div class="card-label">From Intake</div></div>
+    <div class="summary-card"><div class="card-value">${docs.filter(d => d.upload_source === 'gap_resolution').length}</div><div class="card-label">Gap Resolutions</div></div>
+  </div>`;
+
+  docs.forEach(doc => {
+    const { data: urlData } = supabase.storage.from('case-documents').getPublicUrl(doc.file_path);
+    const publicUrl = urlData?.publicUrl || '#';
+    const icon = doc.mime_type?.includes('pdf') ? '&#128211;' :
+                 doc.mime_type?.includes('image') ? '&#128247;' :
+                 doc.mime_type?.includes('word') || doc.mime_type?.includes('document') ? '&#128196;' : '&#128196;';
+    const srcBadgeColor = doc.upload_source === 'gap_resolution' ? '#60a5fa' : '#4ade80';
+    const srcLabel = doc.upload_source === 'gap_resolution' ? 'Gap' : doc.upload_source === 'intake' ? 'Intake' : doc.upload_source;
+
+    html += `<div class="doc-card">
+      <span class="doc-icon">${icon}</span>
+      <div class="doc-info">
+        <div class="doc-name">${escHtml(doc.file_name)}</div>
+        <div class="doc-meta">
+          ${escHtml(doc.document_type.replace(/_/g, ' '))} &middot;
+          ${doc.file_size ? (doc.file_size / 1024).toFixed(0) + ' KB' : ''} &middot;
+          ${formatShortDate(doc.created_at)}
+          ${doc.gap_reference ? ` &middot; Gap: ${escHtml(doc.gap_reference)}` : ''}
+        </div>
+      </div>
+      <span class="badge" style="background:${srcBadgeColor}22;color:${srcBadgeColor};font-size:10px;">${srcLabel}</span>
+      <a href="${publicUrl}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;padding:4px 10px;text-decoration:none;">View</a>
+    </div>`;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function triggerDocUpload() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.csv';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setStatus('Uploading ' + files.length + ' document(s)...');
+    const results = await uploadCaseDocuments(state.currentCaseId, files, 'client');
+    if (results.length) {
+      setStatus(results.length + ' document(s) uploaded');
+      await supabase.from('fcra_case_activity').insert({
+        case_id: state.currentCaseId,
+        activity_type: 'document_upload',
+        stage: 'documents',
+        actor: 'dashboard',
+        summary: 'Uploaded ' + results.length + ' document(s)',
+        details: { files: results.map(r => r.file_name) }
+      });
+      state.caseData = await fetchCaseDetail(state.currentCaseId);
+      renderWorkspace();
+    }
+  };
+  input.click();
+}
+
 // ==================== SECTION HELPER ====================
 function renderSection(title, content, startOpen = false) {
   return `<div class="result-section">
@@ -1386,7 +1784,13 @@ return {
   switchTab,
   approveStage,
   requestChanges,
-  setStatus
+  setStatus,
+  onErrorTypeChange,
+  handleFileSelect,
+  handleFileDrop,
+  removePendingFile,
+  triggerGapUpload,
+  triggerDocUpload
 };
 
 })(); // end IIFE
