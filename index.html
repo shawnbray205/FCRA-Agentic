@@ -1197,9 +1197,19 @@ function renderChronologyTab(d) {
   }
 
   if (gaps.length) {
-    html += renderSection('Documentation Gaps', `<ul style="padding-left:20px;font-size:13px;color:var(--accent-amber);">
-      ${gaps.map(g => `<li style="margin-bottom:4px;">${escHtml(typeof g === 'string' ? g : g.description || JSON.stringify(g))}</li>`).join('')}
-    </ul>`, true);
+    html += renderSection('Documentation Gaps', `<div style="font-size:13px;">${gaps.map(g => {
+      if (typeof g === 'string') return `<div style="color:var(--accent-amber);margin-bottom:4px;">• ${escHtml(g)}</div>`;
+      const pColor = g.priority === 'high' ? '#f87171' : g.priority === 'medium' ? '#fbbf24' : '#4ade80';
+      return `<div style="background:rgba(245,158,11,0.08);border-left:3px solid ${pColor};padding:10px 14px;margin:6px 0;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-weight:600;color:#fbbf24;">${escHtml(g.gap || '')}</span>
+          <span class="badge" style="background:${pColor}22;color:${pColor};font-size:10px;padding:2px 8px;">${escHtml((g.priority || '').toUpperCase())}</span>
+        </div>
+        ${g.fcra_section ? `<div style="color:#60a5fa;font-size:12px;margin-bottom:4px;">FCRA ${escHtml(g.fcra_section)}</div>` : ''}
+        <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(g.recommendation || '')}</div>
+        ${g.legal_significance ? `<div style="color:#94a3b8;font-size:12px;font-style:italic;">${escHtml(g.legal_significance)}</div>` : ''}
+      </div>`;
+    }).join('')}</div>`, true);
   }
 
   if (ch.attorney_action_items?.length) {
