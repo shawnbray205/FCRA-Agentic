@@ -1514,6 +1514,7 @@ function renderIntakeResults(data) {
   const actions = s.attorney_action_items || data.attorney_action_items || [];
   const priority = s.priority_classification || data.priority_classification || 'unknown';
   const confidence = s.confidence_score || data.confidence_score || s.confidence || 0;
+  const damages = s.damages_assessment || {};
 
   let html = '';
 
@@ -1524,27 +1525,102 @@ function renderIntakeResults(data) {
     <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : confidence}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
-  // Violation classification
-  if (violations.type || violations.violation_type || violations.fcra_sections) {
-    html += renderResultSection('Violation Classification', `<ul class="result-list">
-      ${violations.type || violations.violation_type ? `<li><span class="item-label">Type</span><div class="item-value">${escHtml(violations.type || violations.violation_type)}</div></li>` : ''}
-      ${violations.fcra_sections ? `<li><span class="item-label">FCRA Sections</span><div class="item-value">${escHtml(Array.isArray(violations.fcra_sections) ? violations.fcra_sections.join(', ') : violations.fcra_sections)}</div></li>` : ''}
-      ${violations.category ? `<li><span class="item-label">Category</span><div class="item-value"><span class="badge badge-${violations.category === 'high_value' ? 'high' : 'medium'}">${escHtml(violations.category)}</span></div></li>` : ''}
+  // Violation classification with section explanations
+  if (violations.primary_type || violations.type || violations.violation_type || violations.fcra_sections) {
+    let violHtml = `<ul class="result-list">
+      <li><span class="item-label">Violation Type</span><div class="item-value"><strong>${escHtml(violations.primary_type || violations.type || violations.violation_type || 'Unknown')}</strong></div></li>
+      <li><span class="item-label">Case Category</span><div class="item-value"><span class="badge badge-${(violations.case_category || violations.category) === 'high_value' ? 'high' : 'medium'}">${escHtml(violations.case_category || violations.category || 'standard')}</span></div></li>`;
+    if (violations.fcra_sections) {
+      violHtml += `<li><span class="item-label">FCRA Sections</span><div class="item-value">${escHtml(Array.isArray(violations.fcra_sections) ? violations.fcra_sections.join(', ') : violations.fcra_sections)}</div></li>`;
+    }
+    violHtml += `</ul>`;
+
+    // Section explanations (enhanced output)
+    const sectionExps = violations.section_explanations || [];
+    if (sectionExps.length > 0) {
+      violHtml += `<div style="margin-top:10px;padding:10px;background:rgba(212,168,67,0.08);border-radius:6px;border-left:3px solid var(--gold);">
+        <div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:8px;text-transform:uppercase;">Applicable FCRA Provisions</div>`;
+      sectionExps.forEach(se => {
+        violHtml += `<div style="margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${escHtml(se.section)} - ${escHtml(se.title || '')}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin:3px 0;">${escHtml(se.text || '')}</div>
+          <div style="font-size:12px;color:var(--gold);font-style:italic;">Applies here: ${escHtml(se.applies_when || '')}</div>
+        </div>`;
+      });
+      violHtml += `</div>`;
+    }
+
+    html += renderResultSection('FCRA Violation Analysis', violHtml, true);
+  }
+
+  // Statute of Limitations — enhanced with full analysis
+  if (sol.status || sol.sol_status || sol.sol_analysis) {
+    let solHtml = `<ul class="result-list">
+      <li><span class="item-label">Status</span><div class="item-value"><span class="badge badge-${(sol.status || sol.sol_status) === 'expired' ? 'critical' : (sol.status || sol.sol_status) === 'concern' ? 'high' : 'medium'}">${escHtml(sol.status || sol.sol_status || 'Unknown')}</span></div></li>
+    </ul>`;
+
+    // Detailed SOL analysis text
+    const solAnalysis = sol.sol_analysis || '';
+    if (solAnalysis && solAnalysis !== 'Statute of limitations analysis not available - verify discovery and violation dates.') {
+      solHtml += `<div style="margin-top:10px;padding:12px;background:rgba(248,113,113,0.06);border-radius:6px;border-left:3px solid #f87171;">
+        <div style="font-size:12px;font-weight:600;color:#f87171;margin-bottom:6px;text-transform:uppercase;">SOL Analysis</div>
+        <pre style="font-size:12px;color:var(--text-primary);white-space:pre-wrap;font-family:inherit;margin:0;line-height:1.5;">${escHtml(solAnalysis)}</pre>
+      </div>`;
+    }
+
+    // SOL details with deadlines
+    const details = sol.details || {};
+    if (details.sol_2yr_discovery && details.sol_2yr_discovery.deadline) {
+      const d = details.sol_2yr_discovery;
+      solHtml += `<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);">
+        <strong>2-Year Discovery Rule:</strong> Deadline ${escHtml(d.deadline)} ${d.expired ? '<span style="color:#f87171;font-weight:600;"> - POTENTIALLY EXPIRED</span>' : '(' + d.days_remaining + ' days remaining)'}
+      </div>`;
+    }
+    if (details.sol_5yr_violation && details.sol_5yr_violation.deadline) {
+      const d = details.sol_5yr_violation;
+      solHtml += `<div style="margin-top:4px;font-size:12px;color:var(--text-secondary);">
+        <strong>5-Year Absolute Limit:</strong> Deadline ${escHtml(d.deadline)} ${d.expired ? '<span style="color:#f87171;font-weight:600;"> - EXPIRED</span>' : '(' + d.days_remaining + ' days remaining)'}
+      </div>`;
+    }
+
+    html += renderResultSection('Statute of Limitations', solHtml, true);
+  }
+
+  // Damages assessment
+  if (damages.damages_type || damages.damages_category) {
+    html += renderResultSection('Damages Assessment', `<ul class="result-list">
+      <li><span class="item-label">Damages Type</span><div class="item-value">${escHtml(damages.damages_type || 'Undetermined')}</div></li>
+      <li><span class="item-label">Typical Range</span><div class="item-value">${escHtml(damages.damages_category || 'See analysis')}</div></li>
     </ul>`, true);
   }
 
-  // SOL
-  if (sol.status || sol.sol_status) {
-    html += renderResultSection('Statute of Limitations', `<ul class="result-list">
-      <li><span class="item-label">Status</span><div class="item-value">${escHtml(sol.status || sol.sol_status)}</div></li>
-    </ul>`, true);
-  }
-
-  // Action items
+  // Attorney Action Items — enhanced rendering with categorized items
   if (actions.length > 0) {
-    html += renderResultSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;color:var(--text-primary);">
-      ${actions.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : a.description || JSON.stringify(a))}</li>`).join('')}
-    </ol>`, true);
+    let actHtml = '<div style="font-size:13px;color:var(--text-primary);">';
+    actions.forEach((a, i) => {
+      const text = typeof a === 'string' ? a : a.description || JSON.stringify(a);
+      const isHeader = text.match(/^[A-Z][A-Z\s\-]+:/);
+      if (isHeader) {
+        const [label, ...rest] = text.split(':');
+        const body = rest.join(':').trim();
+        actHtml += `<div style="margin:${i > 0 ? '12px' : '0'} 0 4px 0;font-weight:600;color:var(--gold);font-size:12px;text-transform:uppercase;">${escHtml(label)}</div>`;
+        if (body) {
+          actHtml += `<div style="margin-bottom:8px;padding-left:12px;border-left:2px solid rgba(212,168,67,0.3);line-height:1.5;">${escHtml(body)}</div>`;
+        }
+      } else {
+        actHtml += `<div style="margin-bottom:6px;padding-left:12px;line-height:1.5;">${escHtml(text)}</div>`;
+      }
+    });
+    actHtml += '</div>';
+    html += renderResultSection('Attorney Action Items', actHtml, true);
+  }
+
+  // Evidence needed
+  const evidence = violations.evidence_needed || [];
+  if (evidence.length > 0) {
+    html += renderResultSection('Evidence to Gather', `<ul style="padding-left:20px;font-size:13px;color:var(--text-primary);">
+      ${evidence.map(e => `<li style="margin-bottom:4px;">${escHtml(typeof e === 'string' ? e : e.description || JSON.stringify(e))}</li>`).join('')}
+    </ul>`, true);
   }
 
   // Risk factors
