@@ -821,7 +821,7 @@ body {
     <h1>FCRA CASE MANAGER</h1>
     <div class="url-group">
       <label for="n8n-url">n8n URL:</label>
-      <input type="text" id="n8n-url" placeholder="http://localhost:5678" oninput="App.saveBaseUrl(this.value)">
+      <input type="text" id="n8n-url" placeholder="https://sbray205.app.n8n.cloud" oninput="App.saveBaseUrl(this.value)">
     </div>
     <span class="header-meta" id="header-date"></span>
   </header>
@@ -999,7 +999,7 @@ const STAGES = [
 
 // ==================== STATE ====================
 let state = {
-  n8nBaseUrl: '',
+  n8nBaseUrl: 'https://sbray205.app.n8n.cloud',
   currentCaseId: null,
   currentStage: 0,
   cases: {},
