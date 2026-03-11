@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCRA Case Manager</title>
+<style>
+/* ========== RESET & BASE ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0f1419;
+  --bg-secondary: #1a2332;
+  --bg-tertiary: #243044;
+  --bg-sidebar: #141d2b;
+  --bg-input: #1e293b;
+  --accent-gold: #d4a843;
+  --accent-amber: #f5a623;
+  --accent-copper: #b87333;
+  --status-pending: #6b7280;
+  --status-active: #3b82f6;
+  --status-complete: #22c55e;
+  --status-error: #ef4444;
+  --text-primary: #e8edf3;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: #2d3a4e;
+  --sidebar-width: 260px;
+  --pipeline-height: 80px;
+  --radius: 8px;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ========== LAYOUT ========== */
+#app {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas:
+    "sidebar header"
+    "sidebar pipeline"
+    "sidebar main"
+    "sidebar status";
+  height: 100vh;
+}
+
+/* ========== HEADER ========== */
+#config-bar {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+#config-bar h1 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+#config-bar .url-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+#config-bar label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+#config-bar input {
+  flex: 1;
+  max-width: 400px;
+  padding: 6px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+#config-bar input:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+#config-bar .header-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ========== SIDEBAR ========== */
+#case-sidebar {
+  grid-area: sidebar;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#case-sidebar .sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+#case-sidebar .sidebar-header h2 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: var(--accent-gold);
+  color: #0f1419;
+  width: 100%;
+}
+
+.btn-primary:hover { background: var(--accent-amber); }
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover { border-color: var(--accent-gold); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.btn-danger:hover { background: rgba(239,68,68,0.15); }
+
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+#case-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.case-item {
+  padding: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background 0.15s;
+  border: 1px solid transparent;
+}
+
+.case-item:hover { background: var(--bg-tertiary); }
+
+.case-item.active {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-gold);
+}
+
+.case-item .case-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.case-item .case-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.case-item .case-progress {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.case-item .stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-pending);
+}
+
+.case-item .stage-dot.complete { background: var(--status-complete); }
+.case-item .stage-dot.error { background: var(--status-error); }
+.case-item .stage-dot.in-progress { background: var(--status-active); }
+
+#sidebar-actions {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ========== PIPELINE NAV ========== */
+#pipeline-nav {
+  grid-area: pipeline;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 12px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  height: var(--pipeline-height);
+}
+
+.pipeline-stage {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.pipeline-stage .stage-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--status-pending);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  transition: all 0.2s;
+  position: relative;
+  z-index: 1;
+}
+
+.pipeline-stage.active .stage-circle {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  box-shadow: 0 0 12px rgba(212,168,67,0.3);
+}
+
+.pipeline-stage.complete .stage-circle {
+  border-color: var(--status-complete);
+  background: var(--status-complete);
+  color: #fff;
+}
+
+.pipeline-stage.error .stage-circle {
+  border-color: var(--status-error);
+  color: var(--status-error);
+}
+
+.pipeline-stage.in-progress .stage-circle {
+  border-color: var(--status-active);
+  color: var(--status-active);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+}
+
+.pipeline-stage .stage-label {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pipeline-stage.active .stage-label { color: var(--accent-gold); font-weight: 600; }
+.pipeline-stage.complete .stage-label { color: var(--status-complete); }
+
+.pipeline-connector {
+  width: 60px;
+  height: 2px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.pipeline-connector.complete { background: var(--status-complete); }
+
+/* ========== MAIN WORKSPACE ========== */
+#workspace {
+  grid-area: main;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ========== FORM PANEL ========== */
+#form-panel {
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+}
+
+#form-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+#form-panel .panel-header h3 {
+  font-size: 15px;
+  color: var(--accent-gold);
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group label .required { color: var(--status-error); }
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s;
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: var(--font-sans);
+}
+
+.form-group textarea.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.form-group .help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.form-group select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.form-actions .btn { flex: 1; }
+
+.auto-populated {
+  border-left: 3px solid var(--accent-gold) !important;
+}
+
+/* Dynamic list fields */
+.dynamic-list { margin-top: 6px; }
+
+.dynamic-list .list-item {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: flex-start;
+}
+
+.dynamic-list .list-item input,
+.dynamic-list .list-item textarea {
+  flex: 1;
+}
+
+.dynamic-list .list-item .btn-remove {
+  background: none;
+  border: none;
+  color: var(--status-error);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 6px;
+  line-height: 1;
+}
+
+.btn-add-item {
+  background: none;
+  border: 1px dashed var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.btn-add-item:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+
+/* Collapsible sections */
+.collapsible-section {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+
+.collapsible-section summary {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.collapsible-section summary::before {
+  content: "\25B6";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.collapsible-section[open] summary::before { transform: rotate(90deg); }
+
+.collapsible-section .section-content { padding: 0 12px 12px; }
+
+/* ========== RESULTS PANEL ========== */
+#results-panel {
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+}
+
+#results-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+#results-panel .panel-header h3 {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.draft-banner {
+  background: rgba(245,166,35,0.12);
+  border: 1px solid var(--accent-amber);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  text-align: center;
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+}
+
+.result-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.result-empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
+
+/* Summary cards */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.summary-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.summary-card .card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.summary-card .card-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+/* Result sections */
+.result-section {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.result-section-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.result-section-header .toggle-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.result-section-header.open .toggle-icon { transform: rotate(90deg); }
+
+.result-section-body {
+  padding: 14px;
+  display: none;
+}
+
+.result-section-body.open { display: block; }
+
+/* Result items */
+.result-list { list-style: none; }
+
+.result-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.result-list li:last-child { border-bottom: none; }
+
+.result-list .item-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.result-list .item-value {
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-critical { background: rgba(239,68,68,0.2); color: #f87171; }
+.badge-high { background: rgba(245,166,35,0.2); color: var(--accent-amber); }
+.badge-medium { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.badge-low { background: rgba(34,197,94,0.2); color: #4ade80; }
+
+/* Letter/email preview */
+.document-preview {
+  background: #1c1c1c;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.email-preview {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.email-preview .email-header {
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.email-preview .email-header .email-field {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.email-preview .email-header .email-field strong { color: var(--text-primary); }
+
+.email-preview .email-body {
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15,20,25,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Error banner */
+.error-banner {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-banner .error-message {
+  font-size: 13px;
+  color: #f87171;
+}
+
+/* Raw JSON view */
+.raw-json {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-height: 400px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ========== STATUS BAR ========== */
+#status-bar {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 24px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ========== NO CASE SELECTED ========== */
+.no-case-view {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.no-case-view .logo { font-size: 64px; opacity: 0.2; }
+
+/* ========== SCROLLBAR ========== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ========== PRINT ========== */
+@media print {
+  #case-sidebar, #config-bar, #pipeline-nav, #status-bar, .form-actions, .btn { display: none !important; }
+  #app { display: block !important; }
+  #workspace { display: block !important; }
+  #form-panel { display: none !important; }
+  #results-panel { padding: 0 !important; overflow: visible !important; }
+  .result-section-body { display: block !important; }
+  body { background: #fff; color: #000; }
+  .draft-banner { color: #b45309; border-color: #b45309; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="case-sidebar">
+    <div class="sidebar-header">
+      <h2>Cases</h2>
+      <button class="btn btn-primary" onclick="App.createCase()">+ New Case</button>
+    </div>
+    <div id="case-list"></div>
+    <div id="sidebar-actions">
+      <button class="btn btn-secondary btn-sm" onclick="App.exportCurrentCase()">Export Case JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="App.printCase()">Print Case Report</button>
+    </div>
+  </aside>
+
+  <!-- HEADER -->
+  <header id="config-bar">
+    <h1>FCRA CASE MANAGER</h1>
+    <div class="url-group">
+      <label for="n8n-url">n8n URL:</label>
+      <input type="text" id="n8n-url" placeholder="http://localhost:5678" oninput="App.saveBaseUrl(this.value)">
+    </div>
+    <span class="header-meta" id="header-date"></span>
+  </header>
+
+  <!-- PIPELINE -->
+  <nav id="pipeline-nav"></nav>
+
+  <!-- MAIN -->
+  <main id="workspace">
+    <div class="no-case-view">
+      <div class="logo">&#9878;</div>
+      <div>Create or select a case to begin</div>
+    </div>
+  </main>
+
+  <!-- STATUS BAR -->
+  <footer id="status-bar">
+    <span id="status-left">Ready</span>
+    <span id="status-right">FCRA Case Manager v1.0</span>
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// FCRA CASE MANAGER — Full Application
+// ============================================================
+
+const App = (() => {
+
+// ==================== CONFIG ====================
+const STORAGE_KEY = 'fcra_case_manager';
+
+const STAGES = [
+  {
+    name: 'Intake Triage',
+    shortName: 'Intake',
+    endpoint: '/webhook/fcra-intake',
+    fields: [
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
+      { name: 'complaint_summary', label: 'Complaint Summary', type: 'textarea', required: true, help: 'Describe the FCRA violation or complaint' },
+      { name: 'error_type', label: 'Error Type', type: 'select', required: true,
+        options: [
+          { value: '', label: '-- Select --' },
+          { value: 'credit_report', label: 'Credit Report Error' },
+          { value: 'mixed_file', label: 'Mixed File' },
+          { value: 'identity_theft', label: 'Identity Theft' },
+          { value: 'background_check', label: 'Background Check' }
+        ]
+      },
+      { name: 'discovery_date', label: 'Discovery Date', type: 'date' },
+      { name: 'dispute_history', label: 'Dispute History', type: 'textarea', help: 'Prior dispute attempts with CRAs' }
+    ]
+  },
+  {
+    name: 'Credit Report Parser',
+    shortName: 'Parser',
+    endpoint: '/webhook/credit-report-parser',
+    fields: [
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
+      { name: 'client_id', label: 'Client ID', type: 'text', autoFrom: { stage: 0, path: 'input.client_name', transform: 'slugify' } },
+      { name: 'bureau', label: 'Bureau', type: 'select', options: [
+        { value: 'all', label: 'All Bureaus' },
+        { value: 'equifax', label: 'Equifax' },
+        { value: 'experian', label: 'Experian' },
+        { value: 'transunion', label: 'TransUnion' }
+      ]},
+      { name: 'report_text', label: 'Credit Report Text', type: 'textarea', required: true, mono: true, help: 'Paste raw credit report text' },
+      { name: 'reported_names', label: 'Names on Report', type: 'text', help: 'Comma-separated names appearing on report' },
+      { name: 'reported_addresses', label: 'Addresses on Report', type: 'textarea', help: 'Comma-separated addresses' },
+      { name: 'reported_ssn_last4', label: 'SSN Last 4 Variants', type: 'text', help: 'Comma-separated last-4 digits found' },
+      { name: 'disputed_items', label: 'Disputed Items', type: 'list', itemFields: [
+        { name: 'description', label: 'Description', type: 'text' },
+        { name: 'reported', label: 'Reported Value', type: 'text' },
+        { name: 'actual', label: 'Actual Value', type: 'text' },
+        { name: 'category', label: 'Category', type: 'select', options: [
+          { value: 'balance', label: 'Balance' }, { value: 'status', label: 'Status' },
+          { value: 'identity', label: 'Identity' }, { value: 'account_ownership', label: 'Account Ownership' },
+          { value: 'payment_history', label: 'Payment History' }, { value: 'inquiry', label: 'Inquiry' }
+        ]}
+      ]},
+      { name: 'equifax_data', label: 'Equifax Data (JSON)', type: 'textarea', mono: true, collapsible: true },
+      { name: 'experian_data', label: 'Experian Data (JSON)', type: 'textarea', mono: true, collapsible: true },
+      { name: 'transunion_data', label: 'TransUnion Data (JSON)', type: 'textarea', mono: true, collapsible: true }
+    ]
+  },
+  {
+    name: 'Case Chronology',
+    shortName: 'Chronology',
+    endpoint: '/webhook/case-chronology',
+    fields: [
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
+      { name: 'client_id', label: 'Client ID', type: 'text', autoFrom: { stage: 0, path: 'input.client_name', transform: 'slugify' } },
+      { name: 'case_number', label: 'Case Number', type: 'text' },
+      { name: 'case_events', label: 'Case Events', type: 'textarea', required: true, help: 'Timeline of events in narrative or structured format' },
+      { name: 'dispute_start_date', label: 'Dispute Start Date', type: 'date', autoFrom: { stage: 0, path: 'input.discovery_date' } },
+      { name: 'bureaus_involved', label: 'Bureaus Involved', type: 'multicheck', options: [
+        { value: 'equifax', label: 'Equifax' },
+        { value: 'experian', label: 'Experian' },
+        { value: 'transunion', label: 'TransUnion' }
+      ]},
+      { name: 'focus_areas', label: 'Focus Areas', type: 'multicheck', options: [
+        { value: 'deadline_violations', label: 'Deadline Violations' },
+        { value: 'dispute_chains', label: 'Dispute Chains' },
+        { value: 'documentation_gaps', label: 'Documentation Gaps' },
+        { value: 'statutory_violations', label: 'Statutory Violations' }
+      ]}
+    ]
+  },
+  {
+    name: 'Dispute Letter',
+    shortName: 'Letter',
+    endpoint: '/webhook/dispute-letter',
+    fields: [
+      { name: 'letter_type', label: 'Letter Type', type: 'select', required: true, options: [
+        { value: '', label: '-- Select --' },
+        { value: 'initial_dispute', label: 'Initial Dispute' },
+        { value: 'follow_up', label: 'Follow-Up' },
+        { value: 'demand', label: 'Demand Letter' },
+        { value: 'settlement', label: 'Settlement' }
+      ]},
+      { name: 'violation_type', label: 'Violation Type', type: 'text', autoFrom: { stage: 0, path: 'input.error_type' } },
+      { name: 'case_stage', label: 'Case Stage', type: 'select', options: [
+        { value: 'pre_dispute', label: 'Pre-Dispute' },
+        { value: 'post_dispute', label: 'Post-Dispute' },
+        { value: 'pre_litigation', label: 'Pre-Litigation' },
+        { value: 'litigation', label: 'Litigation' },
+        { value: 'settlement', label: 'Settlement' }
+      ]},
+      { name: 'consumer_name', label: 'Consumer Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
+      { name: 'cra_name', label: 'CRA Name', type: 'text', help: 'Credit Reporting Agency' },
+      { name: 'furnisher_name', label: 'Furnisher Name', type: 'text' },
+      { name: 'account_number', label: 'Account Number', type: 'text' },
+      { name: 'inaccuracy_description', label: 'Inaccuracy Description', type: 'textarea', required: true },
+      { name: 'case_facts', label: 'Case Facts', type: 'textarea', help: 'Summary of case facts for the letter' },
+      { name: 'prior_dispute_date', label: 'Prior Dispute Date', type: 'date' },
+      { name: 'prior_dispute_reference', label: 'Prior Dispute Reference #', type: 'text' }
+    ]
+  },
+  {
+    name: 'Client Comms',
+    shortName: 'Comms',
+    endpoint: '/webhook/client-comms',
+    fields: [
+      { name: 'message_type', label: 'Message Type', type: 'select', required: true, options: [
+        { value: '', label: '-- Select --' },
+        { value: 'status_update', label: 'Status Update' },
+        { value: 'documentation_request', label: 'Documentation Request' },
+        { value: 'milestone_notification', label: 'Milestone Notification' },
+        { value: 'next_steps', label: 'Next Steps' }
+      ]},
+      { name: 'case_id', label: 'Case ID', type: 'text', autoFrom: { stage: -1, path: 'caseId' } },
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
+      { name: 'client_email', label: 'Client Email', type: 'email' },
+      { name: 'case_stage', label: 'Case Stage', type: 'select', options: [
+        { value: 'intake', label: 'Intake' },
+        { value: 'pre_dispute', label: 'Pre-Dispute' },
+        { value: 'post_dispute', label: 'Post-Dispute' },
+        { value: 'litigation', label: 'Litigation' },
+        { value: 'settlement', label: 'Settlement' },
+        { value: 'closed', label: 'Closed' }
+      ]},
+      { name: 'recent_events', label: 'Recent Events', type: 'textarea' },
+      { name: 'urgency', label: 'Urgency', type: 'select', options: [
+        { value: 'routine', label: 'Routine' },
+        { value: 'high', label: 'High' },
+        { value: 'urgent', label: 'Urgent' }
+      ]},
+      { name: 'documents_needed', label: 'Documents Needed', type: 'list', itemFields: [
+        { name: 'document', label: 'Document', type: 'text' }
+      ]},
+      { name: 'custom_instructions', label: 'Custom Instructions', type: 'textarea', help: 'Special instructions for this communication' }
+    ]
+  }
+];
+
+// ==================== STATE ====================
+let state = {
+  n8nBaseUrl: '',
+  currentCaseId: null,
+  currentStage: 0,
+  cases: {},
+  isSubmitting: false
+};
+
+// ==================== STORAGE ====================
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 1,
+      n8nBaseUrl: state.n8nBaseUrl,
+      cases: state.cases,
+      lastActiveCaseId: state.currentCaseId
+    }));
+  } catch (e) {
+    setStatus('Storage warning: ' + e.message);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state.n8nBaseUrl = data.n8nBaseUrl || '';
+      state.cases = data.cases || {};
+      state.currentCaseId = data.lastActiveCaseId || null;
+    }
+  } catch (e) {
+    console.warn('Failed to load state:', e);
+  }
+}
+
+// ==================== HELPERS ====================
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function slugify(str) {
+  return (str || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function getNestedValue(obj, path) {
+  return path.split('.').reduce((o, k) => o && o[k], obj);
+}
+
+function setStatus(msg) {
+  document.getElementById('status-left').textContent = msg;
+}
+
+function currentCase() {
+  return state.currentCaseId ? state.cases[state.currentCaseId] : null;
+}
+
+// ==================== CASE CRUD ====================
+function createCase() {
+  const id = uuid();
+  const now = new Date().toISOString();
+  state.cases[id] = {
+    id,
+    name: 'New Case',
+    clientName: '',
+    createdAt: now,
+    updatedAt: now,
+    stages: STAGES.map((s, i) => ({
+      index: i,
+      name: s.name,
+      status: 'pending',
+      input: null,
+      output: null,
+      submittedAt: null,
+      error: null
+    }))
+  };
+  state.currentCaseId = id;
+  state.currentStage = 0;
+  saveState();
+  renderAll();
+  setStatus('New case created');
+}
+
+function switchCase(id) {
+  state.currentCaseId = id;
+  // Go to first incomplete stage
+  const c = state.cases[id];
+  const firstPending = c.stages.findIndex(s => s.status !== 'complete');
+  state.currentStage = firstPending >= 0 ? firstPending : 0;
+  saveState();
+  renderAll();
+}
+
+function deleteCase(id) {
+  if (!confirm('Delete this case? This cannot be undone.')) return;
+  delete state.cases[id];
+  if (state.currentCaseId === id) state.currentCaseId = null;
+  saveState();
+  renderAll();
+  setStatus('Case deleted');
+}
+
+function switchStage(idx) {
+  state.currentStage = idx;
+  renderPipeline();
+  renderWorkspace();
+}
+
+// ==================== AUTO-POPULATE ====================
+function getAutoValue(field) {
+  const c = currentCase();
+  if (!c || !field.autoFrom) return '';
+
+  const { stage, path, transform } = field.autoFrom;
+
+  // Special: caseId
+  if (stage === -1 && path === 'caseId') return c.id;
+
+  const stageData = c.stages[stage];
+  if (!stageData || !stageData.input) return '';
+
+  let val = getNestedValue(stageData, path);
+  if (val === undefined || val === null) {
+    // Try output paths
+    val = getNestedValue(stageData, 'output.' + path.replace('input.', ''));
+  }
+  if (!val) return '';
+
+  if (transform === 'slugify') return slugify(String(val));
+  return String(val);
+}
+
+// ==================== API ====================
+async function submitStage() {
+  const c = currentCase();
+  if (!c || state.isSubmitting) return;
+
+  const baseUrl = state.n8nBaseUrl.replace(/\/+$/, '');
+  if (!baseUrl) {
+    alert('Please configure the n8n base URL first.');
+    document.getElementById('n8n-url').focus();
+    return;
+  }
+
+  const stageIdx = state.currentStage;
+  const stageDef = STAGES[stageIdx];
+  const payload = collectFormData(stageIdx);
+
+  if (!payload) return; // validation failed
+
+  // Update state
+  c.stages[stageIdx].status = 'in-progress';
+  c.stages[stageIdx].input = payload;
+  c.stages[stageIdx].submittedAt = new Date().toISOString();
+  c.stages[stageIdx].error = null;
+  c.updatedAt = new Date().toISOString();
+
+  // Update case name from first stage
+  if (stageIdx === 0 && payload.client_name) {
+    c.clientName = payload.client_name;
+    c.name = payload.client_name;
+  }
+
+  state.isSubmitting = true;
+  saveState();
+  renderAll();
+  setStatus('Submitting to ' + stageDef.name + '...');
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+
+    const url = baseUrl + stageDef.endpoint;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status + ': ' + (await res.text()).substring(0, 200));
+    }
+
+    const data = await res.json();
+    c.stages[stageIdx].output = data;
+    c.stages[stageIdx].status = 'complete';
+    c.stages[stageIdx].error = null;
+    c.updatedAt = new Date().toISOString();
+    setStatus(stageDef.name + ' completed successfully');
+
+  } catch (err) {
+    c.stages[stageIdx].status = 'error';
+    c.stages[stageIdx].error = err.name === 'AbortError' ? 'Request timed out (120s)' : err.message;
+    setStatus('Error: ' + c.stages[stageIdx].error);
+  }
+
+  state.isSubmitting = false;
+  saveState();
+  renderAll();
+}
+
+function collectFormData(stageIdx) {
+  const stageDef = STAGES[stageIdx];
+  const payload = {};
+  let valid = true;
+
+  for (const field of stageDef.fields) {
+    if (field.type === 'list') {
+      payload[field.name] = collectListData(field.name);
+      continue;
+    }
+    if (field.type === 'multicheck') {
+      payload[field.name] = collectMulticheck(field.name);
+      continue;
+    }
+
+    const el = document.getElementById('field-' + field.name);
+    if (!el) continue;
+
+    let val = el.value.trim();
+    if (field.required && !val) {
+      el.style.borderColor = 'var(--status-error)';
+      valid = false;
+      continue;
+    }
+    el.style.borderColor = '';
+    if (val) payload[field.name] = val;
+  }
+
+  if (!valid) {
+    setStatus('Please fill in all required fields');
+    return null;
+  }
+  return payload;
+}
+
+function collectListData(fieldName) {
+  const container = document.getElementById('list-' + fieldName);
+  if (!container) return [];
+  const items = [];
+  container.querySelectorAll('.list-item').forEach(row => {
+    const item = {};
+    let hasValue = false;
+    row.querySelectorAll('[data-field]').forEach(input => {
+      const val = input.value.trim();
+      if (val) { item[input.dataset.field] = val; hasValue = true; }
+    });
+    if (hasValue) items.push(item);
+  });
+  return items;
+}
+
+function collectMulticheck(fieldName) {
+  const checks = document.querySelectorAll(`[name="${fieldName}"]:checked`);
+  return Array.from(checks).map(c => c.value);
+}
+
+// ==================== RENDER: CASE LIST ====================
+function renderCaseList() {
+  const container = document.getElementById('case-list');
+  const caseIds = Object.keys(state.cases).sort((a, b) =>
+    new Date(state.cases[b].updatedAt) - new Date(state.cases[a].updatedAt)
+  );
+
+  if (caseIds.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">No cases yet</div>';
+    return;
+  }
+
+  container.innerHTML = caseIds.map(id => {
+    const c = state.cases[id];
+    const isActive = id === state.currentCaseId;
+    const dots = c.stages.map(s => `<div class="stage-dot ${s.status}"></div>`).join('');
+    return `
+      <div class="case-item ${isActive ? 'active' : ''}" onclick="App.switchCase('${id}')">
+        <div class="case-name">
+          <span>${escHtml(c.name || 'Untitled')}</span>
+          <button class="btn-danger" onclick="event.stopPropagation();App.deleteCase('${id}')" title="Delete">&#10005;</button>
+        </div>
+        <div class="case-meta">${formatDate(c.updatedAt)}</div>
+        <div class="case-progress">${dots}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==================== RENDER: PIPELINE ====================
+function renderPipeline() {
+  const nav = document.getElementById('pipeline-nav');
+  const c = currentCase();
+
+  if (!c) {
+    nav.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+  STAGES.forEach((stage, i) => {
+    const stageData = c.stages[i];
+    let cls = stageData.status;
+    if (i === state.currentStage && stageData.status !== 'complete' && stageData.status !== 'error') cls = 'active';
+
+    html += `<div class="pipeline-stage ${cls}" onclick="App.switchStage(${i})">
+      <div class="stage-circle">${stageData.status === 'complete' ? '&#10003;' : (i + 1)}</div>
+      <div class="stage-label">${stage.shortName}</div>
+    </div>`;
+
+    if (i < STAGES.length - 1) {
+      const connCls = stageData.status === 'complete' ? 'complete' : '';
+      html += `<div class="pipeline-connector ${connCls}"></div>`;
+    }
+  });
+
+  nav.innerHTML = html;
+}
+
+// ==================== RENDER: WORKSPACE ====================
+function renderWorkspace() {
+  const workspace = document.getElementById('workspace');
+  const c = currentCase();
+
+  if (!c) {
+    workspace.innerHTML = `<div class="no-case-view">
+      <div class="logo">&#9878;</div>
+      <div>Create or select a case to begin</div>
+    </div>`;
+    return;
+  }
+
+  workspace.innerHTML = `
+    <div id="form-panel">${renderForm()}</div>
+    <div id="results-panel" style="position:relative;">${renderResults()}${state.isSubmitting ? renderLoading() : ''}</div>
+  `;
+}
+
+// ==================== RENDER: FORM ====================
+function renderForm() {
+  const c = currentCase();
+  const idx = state.currentStage;
+  const stageDef = STAGES[idx];
+  const stageData = c.stages[idx];
+  const savedInput = stageData.input || {};
+
+  let html = `<div class="panel-header">
+    <h3>${stageDef.name}</h3>
+    <span style="font-size:11px;color:var(--text-muted);">Stage ${idx + 1} of 5</span>
+  </div>`;
+
+  for (const field of stageDef.fields) {
+    // Get saved or auto-populated value
+    let value = savedInput[field.name] || '';
+    let isAuto = false;
+    if (!value && field.autoFrom) {
+      value = getAutoValue(field);
+      isAuto = !!value;
+    }
+
+    if (field.type === 'list') {
+      html += renderListField(field, savedInput[field.name] || []);
+      continue;
+    }
+
+    if (field.type === 'multicheck') {
+      const checked = savedInput[field.name] || [];
+      html += `<div class="form-group"><label>${escHtml(field.label)}</label>`;
+      html += field.options.map(opt =>
+        `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;color:var(--text-primary);cursor:pointer;">
+          <input type="checkbox" name="${field.name}" value="${opt.value}" ${checked.includes(opt.value) ? 'checked' : ''}> ${opt.label}
+        </label>`
+      ).join('');
+      html += `</div>`;
+      continue;
+    }
+
+    if (field.collapsible) {
+      html += `<details class="collapsible-section">
+        <summary>${escHtml(field.label)}</summary>
+        <div class="section-content">
+          <div class="form-group">
+            <textarea id="field-${field.name}" class="${field.mono ? 'mono' : ''}" rows="4">${escHtml(typeof value === 'string' ? value : JSON.stringify(value, null, 2))}</textarea>
+            ${field.help ? `<div class="help-text">${escHtml(field.help)}</div>` : ''}
+          </div>
+        </div>
+      </details>`;
+      continue;
+    }
+
+    const autoCls = isAuto ? ' auto-populated' : '';
+    html += `<div class="form-group"><label>${escHtml(field.label)}${field.required ? ' <span class="required">*</span>' : ''}</label>`;
+
+    if (field.type === 'select') {
+      html += `<select id="field-${field.name}"${autoCls}>`;
+      for (const opt of field.options) {
+        const sel = (typeof value === 'string' ? value : '') === opt.value ? ' selected' : '';
+        html += `<option value="${opt.value}"${sel}>${escHtml(opt.label)}</option>`;
+      }
+      html += `</select>`;
+    } else if (field.type === 'textarea') {
+      html += `<textarea id="field-${field.name}" class="${field.mono ? 'mono' : ''}${autoCls}" rows="${field.mono ? 8 : 4}">${escHtml(typeof value === 'string' ? value : '')}</textarea>`;
+    } else {
+      html += `<input type="${field.type || 'text'}" id="field-${field.name}" value="${escAttr(typeof value === 'string' ? value : '')}" class="${autoCls}">`;
+    }
+
+    if (field.help) html += `<div class="help-text">${escHtml(field.help)}</div>`;
+    html += `</div>`;
+  }
+
+  html += `<div class="form-actions">
+    <button class="btn btn-primary" onclick="App.submitStage()" ${state.isSubmitting ? 'disabled' : ''}>
+      ${state.isSubmitting ? 'Submitting...' : 'Submit to n8n'}
+    </button>
+    ${idx < 4 ? `<button class="btn btn-secondary" onclick="App.switchStage(${idx + 1})">Next Stage &rarr;</button>` : ''}
+  </div>`;
+
+  return html;
+}
+
+function renderListField(field, items) {
+  let html = `<div class="form-group"><label>${escHtml(field.label)}</label>
+    <div class="dynamic-list" id="list-${field.name}">`;
+
+  const renderItem = (item, i) => {
+    let row = `<div class="list-item">`;
+    for (const sub of field.itemFields) {
+      const val = item[sub.name] || '';
+      if (sub.type === 'select') {
+        row += `<select data-field="${sub.name}" style="flex:1;">`;
+        for (const opt of sub.options) {
+          row += `<option value="${opt.value}" ${val === opt.value ? 'selected' : ''}>${escHtml(opt.label)}</option>`;
+        }
+        row += `</select>`;
+      } else {
+        row += `<input type="text" data-field="${sub.name}" value="${escAttr(val)}" placeholder="${escAttr(sub.label)}">`;
+      }
+    }
+    row += `<button class="btn-remove" onclick="this.parentElement.remove()">&times;</button></div>`;
+    return row;
+  };
+
+  items.forEach((item, i) => { html += renderItem(item, i); });
+  html += `</div>`;
+
+  // Template for new items
+  const emptyItem = {};
+  field.itemFields.forEach(f => { emptyItem[f.name] = ''; });
+  const templateHtml = renderItem(emptyItem, 0).replace(/"/g, '&quot;');
+
+  html += `<button class="btn-add-item" onclick="addListItem('list-${field.name}', '${field.name}')">+ Add Item</button></div>`;
+  return html;
+}
+
+// ==================== RENDER: RESULTS ====================
+function renderResults() {
+  const c = currentCase();
+  const idx = state.currentStage;
+  const stageData = c.stages[idx];
+
+  let html = `<div class="panel-header">
+    <h3>Results</h3>
+    ${stageData.output ? `<button class="btn btn-secondary btn-sm" onclick="copyRawJson(${idx})">Copy JSON</button>` : ''}
+  </div>`;
+
+  if (stageData.error) {
+    html += `<div class="error-banner">
+      <span class="error-message">${escHtml(stageData.error)}</span>
+      <button class="btn btn-secondary btn-sm" onclick="App.submitStage()">Retry</button>
+    </div>`;
+  }
+
+  if (!stageData.output) {
+    html += `<div class="result-empty">
+      <div class="empty-icon">&#9744;</div>
+      <div>No results yet. Submit the form to run this stage.</div>
+    </div>`;
+    return html;
+  }
+
+  html += `<div class="draft-banner">DRAFT ANALYSIS &mdash; FOR ATTORNEY REVIEW ONLY</div>`;
+
+  // Stage-specific rendering
+  switch (idx) {
+    case 0: html += renderIntakeResults(stageData.output); break;
+    case 1: html += renderParserResults(stageData.output); break;
+    case 2: html += renderChronologyResults(stageData.output); break;
+    case 3: html += renderLetterResults(stageData.output); break;
+    case 4: html += renderCommsResults(stageData.output); break;
+  }
+
+  // Raw JSON (collapsed)
+  html += renderResultSection('Raw JSON Response', `<div class="raw-json">${escHtml(JSON.stringify(stageData.output, null, 2))}</div>`, false);
+
+  return html;
+}
+
+function renderIntakeResults(data) {
+  // Normalize — handle different response shapes
+  const s = data.synthesis || data.formattedResponse || data;
+  const viability = s.viability_assessment || s.case_viability || {};
+  const violations = s.violation_classification || s.violations || {};
+  const sol = s.statute_of_limitations || s.sol || {};
+  const actions = s.attorney_action_items || data.attorney_action_items || [];
+  const priority = s.priority_classification || data.priority_classification || 'unknown';
+  const confidence = s.confidence_score || data.confidence_score || s.confidence || 0;
+
+  let html = '';
+
+  // Summary cards
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${viability.score || viability.viability_score || '--'}</div><div class="card-label">Viability Score</div></div>
+    <div class="summary-card"><div class="card-value"><span class="badge badge-${priority === 'high' ? 'critical' : priority === 'medium' ? 'medium' : 'low'}">${priority}</span></div><div class="card-label">Priority</div></div>
+    <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : confidence}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  // Violation classification
+  if (violations.type || violations.violation_type || violations.fcra_sections) {
+    html += renderResultSection('Violation Classification', `<ul class="result-list">
+      ${violations.type || violations.violation_type ? `<li><span class="item-label">Type</span><div class="item-value">${escHtml(violations.type || violations.violation_type)}</div></li>` : ''}
+      ${violations.fcra_sections ? `<li><span class="item-label">FCRA Sections</span><div class="item-value">${escHtml(Array.isArray(violations.fcra_sections) ? violations.fcra_sections.join(', ') : violations.fcra_sections)}</div></li>` : ''}
+      ${violations.category ? `<li><span class="item-label">Category</span><div class="item-value"><span class="badge badge-${violations.category === 'high_value' ? 'high' : 'medium'}">${escHtml(violations.category)}</span></div></li>` : ''}
+    </ul>`, true);
+  }
+
+  // SOL
+  if (sol.status || sol.sol_status) {
+    html += renderResultSection('Statute of Limitations', `<ul class="result-list">
+      <li><span class="item-label">Status</span><div class="item-value">${escHtml(sol.status || sol.sol_status)}</div></li>
+    </ul>`, true);
+  }
+
+  // Action items
+  if (actions.length > 0) {
+    html += renderResultSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;color:var(--text-primary);">
+      ${actions.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : a.description || JSON.stringify(a))}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  // Risk factors
+  const risks = s.risk_factors || data.risk_factors || [];
+  if (risks.length > 0) {
+    html += renderResultSection('Risk Factors', `<ul style="padding-left:20px;font-size:13px;color:#f87171;">
+      ${risks.map(r => `<li style="margin-bottom:4px;">${escHtml(typeof r === 'string' ? r : r.description || JSON.stringify(r))}</li>`).join('')}
+    </ul>`, true);
+  }
+
+  return html;
+}
+
+function renderParserResults(data) {
+  const s = data.synthesis || data;
+  const tradelines = s.tradelines_extracted || [];
+  const errors = s.errors_found || [];
+  const discrepancies = s.bureau_discrepancies || [];
+  const mixed = s.mixed_file_analysis || {};
+  const actions = s.attorney_action_items || [];
+  const severity = s.overall_error_severity || 'unknown';
+  const confidence = s.confidence_score || 0;
+
+  let html = `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${tradelines.length}</div><div class="card-label">Tradelines</div></div>
+    <div class="summary-card"><div class="card-value">${errors.length}</div><div class="card-label">Errors</div></div>
+    <div class="summary-card"><div class="card-value">${discrepancies.length}</div><div class="card-label">Discrepancies</div></div>
+    <div class="summary-card"><div class="card-value"><span class="badge badge-${severity === 'critical' ? 'critical' : severity === 'high' ? 'high' : 'medium'}">${severity}</span></div><div class="card-label">Severity</div></div>
+  </div>`;
+
+  // Mixed file
+  if (mixed.mixed_file_probability !== undefined || mixed.probability !== undefined) {
+    const prob = mixed.mixed_file_probability || mixed.probability || 0;
+    const risk = mixed.risk_level || (prob >= 0.7 ? 'high' : prob >= 0.4 ? 'medium' : 'low');
+    html += renderResultSection('Mixed File Analysis', `<ul class="result-list">
+      <li><span class="item-label">Probability</span><div class="item-value">${(prob * 100).toFixed(0)}%</div></li>
+      <li><span class="item-label">Risk Level</span><div class="item-value"><span class="badge badge-${risk}">${risk}</span></div></li>
+      ${mixed.indicators && mixed.indicators.length ? `<li><span class="item-label">Indicators</span><div class="item-value">${mixed.indicators.map(i => escHtml(i)).join('<br>')}</div></li>` : ''}
+    </ul>`, true);
+  }
+
+  // Errors
+  if (errors.length > 0) {
+    html += renderResultSection(`Errors Found (${errors.length})`, `<ul class="result-list">
+      ${errors.map(e => `<li>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${escHtml(e.error_description || e.violation_type || 'Error')}</span>
+          <span class="badge badge-${e.severity || 'medium'}">${e.severity || 'medium'}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${escHtml(e.fcra_section || '')}</div>
+      </li>`).join('')}
+    </ul>`, true);
+  }
+
+  // Actions
+  if (actions.length > 0) {
+    html += renderResultSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${actions.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  return html;
+}
+
+function renderChronologyResults(data) {
+  const s = data.synthesis || data.formattedResponse?.case_chronology || data.case_chronology || data;
+  const chronology = s.chronology || s.timeline || [];
+  const deadlines = s.deadline_analysis || {};
+  const gaps = s.documentation_gaps || [];
+  const violations = s.violations_identified || [];
+  const actions = s.attorney_action_items || [];
+  const confidence = s.confidence_score || 0;
+
+  let html = `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${Array.isArray(chronology) ? chronology.length : '--'}</div><div class="card-label">Events</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.length : '--'}</div><div class="card-label">Gaps</div></div>
+    <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  if (Array.isArray(chronology) && chronology.length > 0) {
+    html += renderResultSection('Timeline', `<ul class="result-list">
+      ${chronology.map(e => `<li>
+        <span class="item-label">${escHtml(e.date || e.timestamp || '')}</span>
+        <div class="item-value">${escHtml(e.event || e.description || JSON.stringify(e))}</div>
+      </li>`).join('')}
+    </ul>`, true);
+  }
+
+  if (Array.isArray(gaps) && gaps.length > 0) {
+    html += renderResultSection('Documentation Gaps', `<ul style="padding-left:20px;font-size:13px;color:var(--accent-amber);">
+      ${gaps.map(g => `<li style="margin-bottom:4px;">${escHtml(typeof g === 'string' ? g : g.description || JSON.stringify(g))}</li>`).join('')}
+    </ul>`, true);
+  }
+
+  if (actions.length > 0) {
+    html += renderResultSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${actions.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : a.description || JSON.stringify(a))}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  return html;
+}
+
+function renderLetterResults(data) {
+  const s = data.synthesis || data;
+  const letter = s.letter || s;
+  const draft = letter.draft || s.draft || s.letter_text || '';
+  const citations = letter.fcra_sections_cited || s.fcra_sections_cited || [];
+  const attorneyActions = letter.required_attorney_actions || s.required_attorney_actions || [];
+  const confidence = letter.confidence || s.confidence_score || s.confidence || 0;
+
+  let html = `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${citations.length}</div><div class="card-label">FCRA Citations</div></div>
+    <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  // Letter preview
+  if (draft) {
+    html += renderResultSection('Letter Draft', `<div class="document-preview">${escHtml(typeof draft === 'string' ? draft : JSON.stringify(draft, null, 2))}</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="copyToClipboard(${JSON.stringify(typeof draft === 'string' ? draft : JSON.stringify(draft)).replace(/'/g, "\\'")})">Copy Letter Text</button>`, true);
+  }
+
+  if (attorneyActions.length > 0) {
+    html += renderResultSection('Required Attorney Actions', `<ul style="padding-left:20px;font-size:13px;color:var(--accent-amber);">
+      ${attorneyActions.map(a => `<li style="margin-bottom:4px;">${escHtml(a)}</li>`).join('')}
+    </ul>`, true);
+  }
+
+  if (citations.length > 0) {
+    html += renderResultSection('FCRA Sections Cited', `<div style="font-size:13px;">${citations.map(c => `<span class="badge badge-medium" style="margin:2px;">${escHtml(c)}</span>`).join(' ')}</div>`, true);
+  }
+
+  return html;
+}
+
+function renderCommsResults(data) {
+  const s = data.synthesis || data;
+  const comm = s.communication || s;
+  const subject = comm.subject_line || '';
+  const body = comm.message_body || '';
+  const clientActions = comm.action_items_for_client || [];
+  const meta = data.metadata || s.metadata || {};
+  const tone = meta.tone_check || '';
+
+  let html = '';
+
+  if (subject || body) {
+    html += renderResultSection('Message Preview', `<div class="email-preview">
+      <div class="email-header">
+        ${subject ? `<div class="email-field"><strong>Subject:</strong> ${escHtml(subject)}</div>` : ''}
+        ${comm.greeting ? `<div class="email-field"><strong>Greeting:</strong> ${escHtml(comm.greeting)}</div>` : ''}
+        ${tone ? `<div class="email-field"><strong>Tone:</strong> <span class="badge badge-medium">${escHtml(tone)}</span></div>` : ''}
+      </div>
+      <div class="email-body">${escHtml(body)}</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="copyToClipboard(${JSON.stringify(body).replace(/'/g, "\\'")})">Copy Message</button>`, true);
+  }
+
+  if (clientActions.length > 0) {
+    html += renderResultSection('Client Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${clientActions.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : a.description || JSON.stringify(a))}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  return html;
+}
+
+// Result section helper
+function renderResultSection(title, content, startOpen = false) {
+  const id = 'section-' + title.replace(/\W+/g, '-').toLowerCase();
+  return `<div class="result-section">
+    <div class="result-section-header ${startOpen ? 'open' : ''}" onclick="toggleSection(this)">
+      ${escHtml(title)}
+      <span class="toggle-icon">&#9654;</span>
+    </div>
+    <div class="result-section-body ${startOpen ? 'open' : ''}">${content}</div>
+  </div>`;
+}
+
+function renderLoading() {
+  return `<div class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Processing with AI agent... this may take 30-60 seconds</div>
+  </div>`;
+}
+
+// ==================== RENDER: ALL ====================
+function renderAll() {
+  document.getElementById('n8n-url').value = state.n8nBaseUrl;
+  document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  renderCaseList();
+  renderPipeline();
+  renderWorkspace();
+}
+
+// ==================== EXPORT / PRINT ====================
+function exportCurrentCase() {
+  const c = currentCase();
+  if (!c) { alert('No case selected'); return; }
+  const json = JSON.stringify(c, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = slugify(c.name || 'case') + '-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus('Case exported');
+}
+
+function printCase() {
+  const c = currentCase();
+  if (!c) { alert('No case selected'); return; }
+  window.print();
+}
+
+// ==================== GLOBAL HELPERS ====================
+function saveBaseUrl(val) {
+  state.n8nBaseUrl = val.trim();
+  saveState();
+}
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str || '');
+  return div.innerHTML;
+}
+
+function escAttr(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ==================== INIT ====================
+function init() {
+  loadState();
+  renderAll();
+  setStatus('Ready');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// ==================== PUBLIC API ====================
+return {
+  createCase,
+  switchCase,
+  deleteCase,
+  switchStage,
+  submitStage,
+  exportCurrentCase,
+  printCase,
+  saveBaseUrl
+};
+
+})(); // end IIFE
+
+// Global DOM helpers (called from onclick inline handlers)
+function toggleSection(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+function copyRawJson(stageIdx) {
+  const c = App && typeof App === 'object' ? null : null; // can't access private state
+  // Re-read from DOM
+  const rawEl = document.querySelector('.raw-json');
+  if (rawEl) {
+    navigator.clipboard.writeText(rawEl.textContent).then(() => {
+      document.getElementById('status-left').textContent = 'JSON copied to clipboard';
+    });
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('status-left').textContent = 'Copied to clipboard';
+  });
+}
+
+function addListItem(containerId, fieldName) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Find the stage definition to get field schema
+  const stageIdx = document.querySelector('.pipeline-stage.active, .pipeline-stage.in-progress');
+  // Build a generic item row
+  const row = document.createElement('div');
+  row.className = 'list-item';
+  row.innerHTML = `<input type="text" data-field="description" placeholder="Description" style="flex:2;">
+    <input type="text" data-field="reported" placeholder="Reported" style="flex:1;">
+    <input type="text" data-field="actual" placeholder="Actual" style="flex:1;">
+    <button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
+  container.appendChild(row);
+}
+</script>
+</body>
+</html>
