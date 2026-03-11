@@ -1329,20 +1329,46 @@ function renderParserTab(d) {
   </div>`;
 
   if (p.errors_found?.length) {
-    html += renderSection('Errors Found (' + p.errors_found.length + ')', `<ul class="result-list">
-      ${p.errors_found.map(e => `<li>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span>${escHtml(e.error_description || e.violation_type || 'Error')}</span>
+    html += renderSection('Errors Found (' + p.errors_found.length + ')', `<div style="font-size:13px;">
+      ${p.errors_found.map(e => `<div style="background:rgba(239,68,68,0.06);border-left:3px solid ${e.severity === 'critical' ? '#ef4444' : '#f59e0b'};padding:12px 14px;margin:8px 0;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-weight:600;color:#e2e8f0;">${escHtml(e.tradeline || 'Unknown Tradeline')}</span>
           <span class="badge badge-${e.severity || 'medium'}">${escHtml(e.severity || 'medium')}</span>
         </div>
-      </li>`).join('')}
-    </ul>`, true);
+        <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(e.description || e.error_description || 'No description')}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;">
+          <span style="color:#94a3b8;font-size:12px;"><strong>Type:</strong> ${escHtml((e.error_type || '').replace(/_/g, ' '))}</span>
+          ${e.fcra_section ? `<span style="color:#60a5fa;font-size:12px;"><strong>FCRA:</strong> ${escHtml(e.fcra_section)}</span>` : ''}
+          ${e.bureaus_affected?.length ? `<span style="color:#94a3b8;font-size:12px;"><strong>Bureaus:</strong> ${escHtml(e.bureaus_affected.join(', '))}</span>` : ''}
+        </div>
+      </div>`).join('')}
+    </div>`, true);
   }
 
   if (p.bureau_discrepancies?.length) {
-    html += renderSection('Bureau Discrepancies', `<ul class="result-list">
-      ${p.bureau_discrepancies.map(d => `<li>${escHtml(typeof d === 'string' ? d : d.description || JSON.stringify(d))}</li>`).join('')}
-    </ul>`, true);
+    html += renderSection('Bureau Discrepancies (' + p.bureau_discrepancies.length + ')', `<div style="font-size:13px;">
+      ${p.bureau_discrepancies.map(bd => {
+        if (typeof bd === 'string') return `<div style="padding:8px;margin:4px 0;">${escHtml(bd)}</div>`;
+        return `<div style="background:rgba(245,158,11,0.06);border-left:3px solid #fbbf24;padding:12px 14px;margin:8px 0;border-radius:6px;">
+          <div style="font-weight:600;color:#fbbf24;margin-bottom:8px;">${escHtml((bd.field || '').replace(/_/g, ' '))}</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
+            <div style="text-align:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+              <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Equifax</div>
+              <div style="color:#e2e8f0;font-size:12px;font-weight:500;">${escHtml(bd.equifax || '—')}</div>
+            </div>
+            <div style="text-align:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+              <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Experian</div>
+              <div style="color:#e2e8f0;font-size:12px;font-weight:500;">${escHtml(bd.experian || '—')}</div>
+            </div>
+            <div style="text-align:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+              <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">TransUnion</div>
+              <div style="color:#e2e8f0;font-size:12px;font-weight:500;">${escHtml(bd.transunion || '—')}</div>
+            </div>
+          </div>
+          ${bd.discrepancy ? `<div style="color:#cbd5e1;font-size:12px;">${escHtml(bd.discrepancy)}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`, true);
   }
 
   if (p.attorney_action_items?.length) {
