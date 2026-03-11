@@ -1251,7 +1251,15 @@ function renderLetterTab(d) {
   }
 
   if (l.fcra_citations?.length) {
-    html += renderSection('FCRA Citations', `<div style="font-size:13px;">${l.fcra_citations.map(c => `<span class="badge badge-medium" style="margin:2px;">${escHtml(c)}</span>`).join(' ')}</div>`, true);
+    html += renderSection('FCRA Citations', `<div style="font-size:13px;">${l.fcra_citations.map(c => {
+      if (typeof c === 'string') return `<span class="badge badge-medium" style="margin:2px;">${escHtml(c)}</span>`;
+      return `<div style="background:rgba(59,130,246,0.08);border-left:3px solid #60a5fa;padding:10px 14px;margin:6px 0;border-radius:6px;">
+        <div style="font-weight:600;color:#60a5fa;margin-bottom:4px;">${escHtml(c.full_citation || c.section || '')} — ${escHtml(c.title || '')}</div>
+        <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(c.text || '')}</div>
+        ${c.applies_when ? `<div style="color:#94a3b8;font-size:12px;"><strong>Applies when:</strong> ${escHtml(c.applies_when)}</div>` : ''}
+        ${c.remedies ? `<div style="color:#94a3b8;font-size:12px;"><strong>Remedies:</strong> ${escHtml(c.remedies)}</div>` : ''}
+      </div>`;
+    }).join('')}</div>`, true);
   }
 
   if (l.attorney_action_items?.length) {
