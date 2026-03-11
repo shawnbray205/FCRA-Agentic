@@ -25,8 +25,7 @@
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --border-color: #2d3a4e;
-  --sidebar-width: 260px;
-  --pipeline-height: 80px;
+  --sidebar-width: 280px;
   --radius: 8px;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
@@ -46,10 +45,9 @@ body {
 #app {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
   grid-template-areas:
     "sidebar header"
-    "sidebar pipeline"
     "sidebar main"
     "sidebar status";
   height: 100vh;
@@ -74,41 +72,19 @@ body {
   letter-spacing: 0.5px;
 }
 
-#config-bar .url-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-#config-bar label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-#config-bar input {
-  flex: 1;
-  max-width: 400px;
-  padding: 6px 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-family: var(--font-mono);
-}
-
-#config-bar input:focus {
-  outline: none;
-  border-color: var(--accent-gold);
-}
-
 #config-bar .header-meta {
   font-size: 11px;
   color: var(--text-muted);
   white-space: nowrap;
+  margin-left: auto;
 }
+
+.connection-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; margin-right: 6px;
+}
+.connection-dot.connected { background: var(--status-complete); }
+.connection-dot.disconnected { background: var(--status-error); }
 
 /* ========== SIDEBAR ========== */
 #case-sidebar {
@@ -154,6 +130,7 @@ body {
 }
 
 .btn-primary:hover { background: var(--accent-amber); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
   background: var(--bg-tertiary);
@@ -163,15 +140,23 @@ body {
 
 .btn-secondary:hover { border-color: var(--accent-gold); }
 
-.btn-danger {
-  background: transparent;
-  color: var(--status-error);
-  border: 1px solid var(--status-error);
-  padding: 4px 8px;
-  font-size: 11px;
+.btn-approve {
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+  border: 1px solid #22c55e;
+  padding: 6px 14px;
+  font-size: 12px;
 }
+.btn-approve:hover { background: rgba(34,197,94,0.25); }
 
-.btn-danger:hover { background: rgba(239,68,68,0.15); }
+.btn-reject {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.btn-reject:hover { background: rgba(239,68,68,0.25); }
 
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
@@ -197,170 +182,76 @@ body {
   border-color: var(--accent-gold);
 }
 
-.case-item .case-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+.case-name {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.case-item .case-meta {
+.case-meta {
   font-size: 11px;
   color: var(--text-muted);
+  margin-top: 4px;
 }
 
-.case-item .case-progress {
-  display: flex;
-  gap: 3px;
-  margin-top: 6px;
-}
-
-.case-item .stage-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--status-pending);
-}
-
-.case-item .stage-dot.complete { background: var(--status-complete); }
-.case-item .stage-dot.error { background: var(--status-error); }
-.case-item .stage-dot.in-progress { background: var(--status-active); }
-
-#sidebar-actions {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* ========== PIPELINE NAV ========== */
-#pipeline-nav {
-  grid-area: pipeline;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 24px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  height: var(--pipeline-height);
-}
-
-.pipeline-tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  transition: all 0.2s;
-  position: relative;
-}
-
-.pipeline-tab:hover {
-  border-color: var(--accent-gold);
-  background: rgba(212,168,67,0.05);
-}
-
-.pipeline-tab .tab-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid var(--status-pending);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--bg-primary);
-  flex-shrink: 0;
-}
-
-.pipeline-tab .tab-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.pipeline-tab.active {
-  border-color: var(--accent-gold);
-  background: rgba(212,168,67,0.1);
-}
-
-.pipeline-tab.active .tab-icon {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  box-shadow: 0 0 8px rgba(212,168,67,0.3);
-}
-
-.pipeline-tab.active .tab-label {
-  color: var(--accent-gold);
+.case-stage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.pipeline-tab.complete .tab-icon {
-  border-color: var(--status-complete);
-  background: var(--status-complete);
-  color: #fff;
-}
+.stage-intake { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.stage-parsing { background: rgba(168,85,247,0.2); color: #c084fc; }
+.stage-chronology { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.stage-letter { background: rgba(236,72,153,0.2); color: #f472b6; }
+.stage-comms { background: rgba(34,211,238,0.2); color: #22d3ee; }
+.stage-review { background: rgba(34,197,94,0.2); color: #4ade80; }
+.stage-closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
 
-.pipeline-tab.complete .tab-label {
-  color: var(--status-complete);
-}
+.priority-urgent { color: #ef4444; font-weight: 700; }
+.priority-high { color: #f59e0b; font-weight: 600; }
+.priority-medium { color: var(--text-secondary); }
+.priority-low { color: var(--text-muted); }
 
-.pipeline-tab.error .tab-icon {
-  border-color: var(--status-error);
-  color: var(--status-error);
-}
-
-.pipeline-tab.in-progress .tab-icon {
-  border-color: var(--status-active);
-  color: var(--status-active);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
-}
-
-/* ========== MAIN WORKSPACE ========== */
+/* ========== MAIN ========== */
 #workspace {
   grid-area: main;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  overflow: hidden;
-}
-
-/* ========== FORM PANEL ========== */
-#form-panel {
-  padding: 20px;
   overflow-y: auto;
-  border-right: 1px solid var(--border-color);
+  padding: 24px;
 }
 
-#form-panel .panel-header {
+.no-case-view {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 16px;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 16px;
 }
 
-#form-panel .panel-header h3 {
-  font-size: 15px;
+.no-case-view .logo { font-size: 48px; opacity: 0.4; }
+
+/* Intake form */
+.intake-form {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.intake-form h2 {
+  font-size: 20px;
   color: var(--accent-gold);
+  margin-bottom: 20px;
 }
 
 .form-group {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
@@ -368,16 +259,12 @@ body {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.form-group label .required { color: var(--status-error); }
-
-.form-group input,
-.form-group select,
-.form-group textarea {
+.form-group input, .form-group textarea, .form-group select {
   width: 100%;
   padding: 8px 12px;
   background: var(--bg-input);
@@ -386,196 +273,148 @@ body {
   color: var(--text-primary);
   font-size: 13px;
   font-family: var(--font-sans);
-  transition: border-color 0.15s;
 }
 
-.form-group textarea {
-  min-height: 80px;
-  resize: vertical;
-  font-family: var(--font-sans);
-}
-
-.form-group textarea.mono {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
   outline: none;
   border-color: var(--accent-gold);
 }
 
+.form-group textarea { min-height: 80px; resize: vertical; }
+
 .form-group .help-text {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 3px;
-}
-
-.form-group select {
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 30px;
-}
-
-.form-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color);
-}
-
-.form-actions .btn { flex: 1; }
-
-.auto-populated {
-  border-left: 3px solid var(--accent-gold) !important;
-}
-
-/* Dynamic list fields */
-.dynamic-list { margin-top: 6px; }
-
-.dynamic-list .list-item {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-  align-items: flex-start;
-}
-
-.dynamic-list .list-item input,
-.dynamic-list .list-item textarea {
-  flex: 1;
-}
-
-.dynamic-list .list-item .btn-remove {
-  background: none;
-  border: none;
-  color: var(--status-error);
-  cursor: pointer;
-  font-size: 18px;
-  padding: 6px;
-  line-height: 1;
-}
-
-.btn-add-item {
-  background: none;
-  border: 1px dashed var(--border-color);
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: var(--radius);
-  font-size: 12px;
-  cursor: pointer;
-  width: 100%;
   margin-top: 4px;
 }
 
-.btn-add-item:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+.required { color: var(--status-error); }
 
-/* Collapsible sections */
-.collapsible-section {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  margin-bottom: 10px;
-}
+.form-actions { margin-top: 24px; }
 
-.collapsible-section summary {
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  list-style: none;
-}
+/* Case detail view */
+.case-detail { max-width: 900px; }
 
-.collapsible-section summary::before {
-  content: "\25B6";
-  display: inline-block;
-  margin-right: 8px;
-  font-size: 10px;
-  transition: transform 0.15s;
-}
-
-.collapsible-section[open] summary::before { transform: rotate(90deg); }
-
-.collapsible-section .section-content { padding: 0 12px 12px; }
-
-/* ========== RESULTS PANEL ========== */
-#results-panel {
-  padding: 20px;
-  overflow-y: auto;
-  background: var(--bg-primary);
-}
-
-#results-panel .panel-header {
+.case-detail-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-#results-panel .panel-header h3 {
-  font-size: 15px;
-  color: var(--text-secondary);
+.case-detail-header h2 {
+  font-size: 22px;
+  color: var(--text-primary);
 }
 
-.draft-banner {
-  background: rgba(245,166,35,0.12);
-  border: 1px solid var(--accent-amber);
-  border-radius: var(--radius);
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--accent-amber);
-  text-align: center;
-  margin-bottom: 16px;
-  letter-spacing: 0.5px;
-}
-
-.result-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
+.case-detail-header .case-id {
+  font-size: 11px;
   color: var(--text-muted);
-  font-size: 14px;
-  text-align: center;
+  font-family: var(--font-mono);
+  margin-top: 4px;
 }
 
-.result-empty .empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.3;
+/* Pipeline progress */
+.pipeline-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  align-items: center;
+}
+
+.pipeline-step {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+}
+
+.pipeline-step.done { background: rgba(34,197,94,0.15); color: #4ade80; }
+.pipeline-step.active { background: rgba(59,130,246,0.2); color: #60a5fa; animation: pulse 2s infinite; }
+.pipeline-step.pending { background: var(--bg-tertiary); color: var(--text-muted); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.pipeline-arrow {
+  color: var(--text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* Stage tabs */
+.stage-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.stage-tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.stage-tab:hover { color: var(--text-secondary); }
+.stage-tab.active { color: var(--accent-gold); border-bottom-color: var(--accent-gold); }
+.stage-tab.has-data { color: var(--text-primary); }
+.stage-tab.has-data::after { content: ' \2713'; color: var(--status-complete); font-size: 11px; }
+
+/* Stage content */
+.stage-content {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.stage-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 /* Summary cards */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .summary-card {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: 16px;
   text-align: center;
-  border: 1px solid var(--border-color);
 }
 
-.summary-card .card-value {
-  font-size: 22px;
+.card-value {
+  font-size: 24px;
   font-weight: 700;
   color: var(--accent-gold);
 }
 
-.summary-card .card-label {
-  font-size: 10px;
+.card-label {
+  font-size: 11px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -584,64 +423,43 @@ body {
 
 /* Result sections */
 .result-section {
-  background: var(--bg-secondary);
-  border-radius: var(--radius);
+  margin-bottom: 16px;
   border: 1px solid var(--border-color);
-  margin-bottom: 12px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
 .result-section-header {
-  padding: 10px 14px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.result-section-header .toggle-icon {
-  font-size: 10px;
-  color: var(--text-muted);
-  transition: transform 0.15s;
-}
-
+.result-section-header .toggle-icon { transition: transform 0.15s; font-size: 10px; }
 .result-section-header.open .toggle-icon { transform: rotate(90deg); }
 
 .result-section-body {
-  padding: 14px;
   display: none;
+  padding: 16px;
 }
 
 .result-section-body.open { display: block; }
 
-/* Result items */
 .result-list { list-style: none; }
-
 .result-list li {
   padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(45,58,78,0.5);
   font-size: 13px;
 }
-
 .result-list li:last-child { border-bottom: none; }
+.item-label { font-weight: 600; color: var(--text-secondary); display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+.item-value { color: var(--text-primary); }
 
-.result-list .item-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.result-list .item-value {
-  color: var(--text-primary);
-  margin-top: 2px;
-}
-
-/* Badges */
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -649,70 +467,132 @@ body {
   font-size: 11px;
   font-weight: 600;
 }
-
 .badge-critical { background: rgba(239,68,68,0.2); color: #f87171; }
-.badge-high { background: rgba(245,166,35,0.2); color: var(--accent-amber); }
+.badge-high { background: rgba(245,158,11,0.2); color: #fbbf24; }
 .badge-medium { background: rgba(59,130,246,0.2); color: #60a5fa; }
 .badge-low { background: rgba(34,197,94,0.2); color: #4ade80; }
 
-/* Letter/email preview */
+/* Attorney actions */
+.attorney-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(212,168,67,0.06);
+  border: 1px solid rgba(212,168,67,0.2);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.attorney-actions .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: auto;
+}
+
+/* Activity timeline */
+.activity-timeline {
+  margin-top: 24px;
+}
+
+.activity-timeline h3 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(45,58,78,0.3);
+  font-size: 12px;
+}
+
+.activity-item .time {
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 140px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.activity-item .actor {
+  color: var(--accent-copper);
+  min-width: 80px;
+}
+
+.activity-item .summary { color: var(--text-primary); }
+
+/* Document preview */
 .document-preview {
-  background: #1c1c1c;
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  padding: 24px;
-  font-family: var(--font-mono);
+  padding: 20px;
   font-size: 13px;
   line-height: 1.7;
-  color: var(--text-primary);
   white-space: pre-wrap;
-  max-height: 500px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
+/* Draft banner */
+.draft-banner {
+  text-align: center;
+  padding: 8px;
+  border: 1px dashed var(--accent-copper);
+  color: var(--accent-copper);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+}
+
+/* Raw JSON */
+.raw-json {
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+/* Email preview */
 .email-preview {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   overflow: hidden;
 }
-
-.email-preview .email-header {
+.email-header {
   padding: 12px 16px;
-  background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
-}
-
-.email-preview .email-header .email-field {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-.email-preview .email-header .email-field strong { color: var(--text-primary); }
-
-.email-preview .email-body {
-  padding: 16px;
   font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-wrap;
 }
+.email-field { margin-bottom: 4px; }
+.email-body { padding: 16px; font-size: 13px; white-space: pre-wrap; line-height: 1.7; }
 
-/* Loading overlay */
+/* Loading */
 .loading-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(15,20,25,0.85);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  padding: 60px;
+  gap: 16px;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
+  width: 32px; height: 32px;
   border: 3px solid var(--border-color);
   border-top-color: var(--accent-gold);
   border-radius: 50%;
@@ -721,86 +601,25 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.loading-text {
-  margin-top: 12px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
+.loading-text { color: var(--text-muted); font-size: 13px; }
 
-/* Error banner */
-.error-banner {
-  background: rgba(239,68,68,0.12);
-  border: 1px solid var(--status-error);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.error-banner .error-message {
-  font-size: 13px;
-  color: #f87171;
-}
-
-/* Raw JSON view */
-.raw-json {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  padding: 14px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  max-height: 400px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-/* ========== STATUS BAR ========== */
+/* Status bar */
 #status-bar {
   grid-area: status;
   display: flex;
-  align-items: center;
   justify-content: space-between;
   padding: 6px 24px;
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
   font-size: 11px;
   color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
 }
 
-/* ========== NO CASE SELECTED ========== */
-.no-case-view {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: var(--text-muted);
-  font-size: 16px;
-}
-
-.no-case-view .logo { font-size: 64px; opacity: 0.2; }
-
-/* ========== SCROLLBAR ========== */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* ========== PRINT ========== */
+/* Print styles */
 @media print {
-  #case-sidebar, #config-bar, #pipeline-nav, #status-bar, .form-actions, .btn { display: none !important; }
+  #case-sidebar, #config-bar, #status-bar, .btn, .attorney-actions { display: none !important; }
   #app { display: block !important; }
-  #workspace { display: block !important; }
-  #form-panel { display: none !important; }
-  #results-panel { padding: 0 !important; overflow: visible !important; }
-  .result-section-body { display: block !important; }
+  #workspace { padding: 0 !important; overflow: visible !important; }
   body { background: #fff; color: #000; }
   .draft-banner { color: #b45309; border-color: #b45309; }
 }
@@ -813,24 +632,17 @@ body {
   <aside id="case-sidebar">
     <div class="sidebar-header">
       <h2>Cases</h2>
-      <button class="btn btn-primary" onclick="App.createCase()">+ New Case</button>
+      <button class="btn btn-primary" onclick="App.showIntakeForm()">+ New Case</button>
     </div>
     <div id="case-list"></div>
-    <div id="sidebar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="App.exportCurrentCase()">Export to Text</button>
-      <button class="btn btn-secondary btn-sm" onclick="App.printCase()">Print Case Report</button>
-    </div>
   </aside>
 
   <!-- HEADER -->
   <header id="config-bar">
     <h1>FCRA CASE MANAGER</h1>
-    <input type="hidden" id="n8n-url" value="https://sbray205.app.n8n.cloud">
+    <span id="connection-status"></span>
     <span class="header-meta" id="header-date"></span>
   </header>
-
-  <!-- PIPELINE -->
-  <nav id="pipeline-nav"></nav>
 
   <!-- MAIN -->
   <main id="workspace">
@@ -843,354 +655,224 @@ body {
   <!-- STATUS BAR -->
   <footer id="status-bar">
     <span id="status-left">Ready</span>
-    <span id="status-right">FCRA Case Manager v1.0</span>
+    <span id="status-right">FCRA Case Manager v2.0 — Supabase</span>
   </footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ============================================================
-// FCRA CASE MANAGER — Full Application
+// FCRA CASE MANAGER v2.0 — Supabase-Backed
 // ============================================================
 
 const App = (() => {
 
 // ==================== CONFIG ====================
-const STORAGE_KEY = 'fcra_case_manager';
+const SUPABASE_URL = 'https://qygsgyiyxabztaghggvt.supabase.co';
+const SUPABASE_ANON_KEY = 'SUPABASE_ANON_KEY'; // Replace with actual anon key
+const N8N_BASE_URL = 'https://sbray205.app.n8n.cloud';
 
-const STAGES = [
-  {
-    name: 'Intake Triage',
-    shortName: 'Intake',
-    endpoint: '/webhook/fcra-intake',
-    fields: [
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
-      { name: 'complaint_summary', label: 'Complaint Summary', type: 'textarea', required: true, help: 'Describe the FCRA violation or complaint' },
-      { name: 'error_type', label: 'Error Type', type: 'select', required: true,
-        options: [
-          { value: '', label: '-- Select --' },
-          { value: 'inaccurate_information', label: 'Inaccurate Information' },
-          { value: 'mixed_file', label: 'Mixed File' },
-          { value: 'identity_theft', label: 'Identity Theft' },
-          { value: 'reinvestigation_failure', label: 'Reinvestigation Failure' },
-          { value: 'furnisher_violation', label: 'Furnisher Violation' },
-          { value: 'unauthorized_inquiry', label: 'Unauthorized Inquiry' },
-          { value: 'obsolete_data', label: 'Obsolete Data' },
-          { value: 'background_check', label: 'Background Check' },
-          { value: 'medical_debt', label: 'Medical Debt' },
-          { value: 'credit_report', label: 'Credit Report Error' }
-        ]
-      },
-      { name: 'discovery_date', label: 'Discovery Date', type: 'date' },
-      { name: 'dispute_history', label: 'Dispute History', type: 'textarea', help: 'Prior dispute attempts with CRAs' }
-    ]
-  },
-  {
-    name: 'Credit Report Parser',
-    shortName: 'Parser',
-    endpoint: '/webhook/credit-report-parser',
-    fields: [
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
-      { name: 'client_id', label: 'Client ID', type: 'text' },
-      { name: 'bureau', label: 'Bureau', type: 'select', options: [
-        { value: 'all', label: 'All Bureaus' },
-        { value: 'equifax', label: 'Equifax' },
-        { value: 'experian', label: 'Experian' },
-        { value: 'transunion', label: 'TransUnion' }
-      ]},
-      { name: 'report_text', label: 'Credit Report Text', type: 'textarea', required: true, mono: true, help: 'Paste raw credit report text' },
-      { name: 'reported_names', label: 'Names on Report', type: 'text', help: 'Comma-separated names appearing on report' },
-      { name: 'reported_addresses', label: 'Addresses on Report', type: 'textarea', help: 'Comma-separated addresses' },
-      { name: 'reported_ssn_last4', label: 'SSN Last 4 Variants', type: 'text', help: 'Comma-separated last-4 digits found' },
-      { name: 'disputed_items', label: 'Disputed Items', type: 'list', itemFields: [
-        { name: 'description', label: 'Description', type: 'text' },
-        { name: 'reported', label: 'Reported Value', type: 'text' },
-        { name: 'actual', label: 'Actual Value', type: 'text' },
-        { name: 'category', label: 'Category', type: 'select', options: [
-          { value: 'balance', label: 'Balance' }, { value: 'status', label: 'Status' },
-          { value: 'identity', label: 'Identity' }, { value: 'account_ownership', label: 'Account Ownership' },
-          { value: 'payment_history', label: 'Payment History' }, { value: 'inquiry', label: 'Inquiry' }
-        ]}
-      ]},
-      { name: 'equifax_data', label: 'Equifax Data (JSON)', type: 'textarea', mono: true, collapsible: true },
-      { name: 'experian_data', label: 'Experian Data (JSON)', type: 'textarea', mono: true, collapsible: true },
-      { name: 'transunion_data', label: 'TransUnion Data (JSON)', type: 'textarea', mono: true, collapsible: true }
-    ]
-  },
-  {
-    name: 'Case Chronology',
-    shortName: 'Chronology',
-    endpoint: '/webhook/case-chronology',
-    fields: [
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
-      { name: 'client_id', label: 'Client ID', type: 'text' },
-      { name: 'case_number', label: 'Case Number', type: 'text' },
-      { name: 'case_events', label: 'Case Events', type: 'textarea', required: true, help: 'Timeline of events in narrative or structured format' },
-      { name: 'dispute_start_date', label: 'Dispute Start Date', type: 'date' },
-      { name: 'bureaus_involved', label: 'Bureaus Involved', type: 'multicheck', options: [
-        { value: 'equifax', label: 'Equifax' },
-        { value: 'experian', label: 'Experian' },
-        { value: 'transunion', label: 'TransUnion' }
-      ]},
-      { name: 'focus_areas', label: 'Focus Areas', type: 'multicheck', options: [
-        { value: 'deadline_violations', label: 'Deadline Violations' },
-        { value: 'dispute_chains', label: 'Dispute Chains' },
-        { value: 'documentation_gaps', label: 'Documentation Gaps' },
-        { value: 'statutory_violations', label: 'Statutory Violations' }
-      ]}
-    ]
-  },
-  {
-    name: 'Dispute Letter',
-    shortName: 'Letter',
-    endpoint: '/webhook/dispute-letter',
-    fields: [
-      { name: 'letter_type', label: 'Letter Type', type: 'select', required: true, options: [
-        { value: '', label: '-- Select --' },
-        { value: 'initial_dispute', label: 'Initial Dispute' },
-        { value: 'follow_up', label: 'Follow-Up' },
-        { value: 'demand', label: 'Demand Letter' },
-        { value: 'settlement', label: 'Settlement' }
-      ]},
-      { name: 'violation_type', label: 'Violation Type', type: 'text' },
-      { name: 'case_stage', label: 'Case Stage', type: 'select', options: [
-        { value: 'pre_dispute', label: 'Pre-Dispute' },
-        { value: 'post_dispute', label: 'Post-Dispute' },
-        { value: 'pre_litigation', label: 'Pre-Litigation' },
-        { value: 'litigation', label: 'Litigation' },
-        { value: 'settlement', label: 'Settlement' }
-      ]},
-      { name: 'consumer_name', label: 'Consumer Name', type: 'text', required: true },
-      { name: 'cra_name', label: 'CRA Name', type: 'text', help: 'Credit Reporting Agency' },
-      { name: 'furnisher_name', label: 'Furnisher Name', type: 'text' },
-      { name: 'account_number', label: 'Account Number', type: 'text' },
-      { name: 'inaccuracy_description', label: 'Inaccuracy Description', type: 'textarea', required: true },
-      { name: 'case_facts', label: 'Case Facts', type: 'textarea', help: 'Summary of case facts for the letter' },
-      { name: 'prior_dispute_date', label: 'Prior Dispute Date', type: 'date' },
-      { name: 'prior_dispute_reference', label: 'Prior Dispute Reference #', type: 'text' }
-    ]
-  },
-  {
-    name: 'Client Comms',
-    shortName: 'Comms',
-    endpoint: '/webhook/client-comms',
-    fields: [
-      { name: 'message_type', label: 'Message Type', type: 'select', required: true, options: [
-        { value: '', label: '-- Select --' },
-        { value: 'status_update', label: 'Status Update' },
-        { value: 'documentation_request', label: 'Documentation Request' },
-        { value: 'milestone_notification', label: 'Milestone Notification' },
-        { value: 'next_steps', label: 'Next Steps' }
-      ]},
-      { name: 'case_id', label: 'Case ID', type: 'text' },
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
-      { name: 'client_email', label: 'Client Email', type: 'email' },
-      { name: 'case_stage', label: 'Case Stage', type: 'select', options: [
-        { value: 'intake', label: 'Intake' },
-        { value: 'pre_dispute', label: 'Pre-Dispute' },
-        { value: 'post_dispute', label: 'Post-Dispute' },
-        { value: 'litigation', label: 'Litigation' },
-        { value: 'settlement', label: 'Settlement' },
-        { value: 'closed', label: 'Closed' }
-      ]},
-      { name: 'recent_events', label: 'Recent Events', type: 'textarea' },
-      { name: 'urgency', label: 'Urgency', type: 'select', options: [
-        { value: 'routine', label: 'Routine' },
-        { value: 'high', label: 'High' },
-        { value: 'urgent', label: 'Urgent' }
-      ]},
-      { name: 'documents_needed', label: 'Documents Needed', type: 'list', itemFields: [
-        { name: 'document', label: 'Document', type: 'text' }
-      ]},
-      { name: 'custom_instructions', label: 'Custom Instructions', type: 'textarea', help: 'Special instructions for this communication' }
-    ]
-  }
-];
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STAGE_ORDER = ['intake', 'parsing', 'chronology', 'letter', 'comms', 'review', 'closed'];
+const STAGE_LABELS = {
+  intake: 'Intake', parsing: 'Parser', chronology: 'Chronology',
+  letter: 'Letter', comms: 'Comms', review: 'Review', closed: 'Closed'
+};
 
 // ==================== STATE ====================
 let state = {
-  n8nBaseUrl: 'https://sbray205.app.n8n.cloud',
+  cases: [],
   currentCaseId: null,
-  currentStage: 0,
-  cases: {},
-  isSubmitting: false
+  currentTab: 'intake',
+  caseData: null,  // full joined data for selected case
+  isSubmitting: false,
+  realtimeChannel: null
 };
 
-// ==================== STORAGE ====================
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 1,
-      n8nBaseUrl: state.n8nBaseUrl,
-      cases: state.cases,
-      lastActiveCaseId: state.currentCaseId
-    }));
-  } catch (e) {
-    setStatus('Storage warning: ' + e.message);
-  }
+// ==================== SUPABASE QUERIES ====================
+async function fetchCases() {
+  const { data, error } = await supabase
+    .from('fcra_cases')
+    .select('id, client_name, case_stage, case_status, priority, created_at, updated_at')
+    .order('updated_at', { ascending: false });
+  if (error) { setStatus('Error loading cases: ' + error.message); return []; }
+  return data || [];
 }
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw);
-      state.n8nBaseUrl = (data.n8nBaseUrl || '').replace(/\/+$/, '').replace(/\/webhook\/.*$/, '');
-      state.cases = data.cases || {};
-      state.currentCaseId = data.lastActiveCaseId || null;
-    }
-  } catch (e) {
-    console.warn('Failed to load state:', e);
-  }
+async function fetchCaseDetail(caseId) {
+  const [caseRes, triageRes, parsedRes, chronRes, letterRes, commsRes, activityRes] = await Promise.all([
+    supabase.from('fcra_cases').select('*').eq('id', caseId).single(),
+    supabase.from('fcra_triage_results').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_parsed_reports').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_case_chronology').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_letters').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_communications').select('*').eq('case_id', caseId).order('created_at', { ascending: false }),
+    supabase.from('fcra_case_activity').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50)
+  ]);
+
+  return {
+    case_record: caseRes.data,
+    triage: triageRes.data?.[0] || null,
+    parsed: parsedRes.data?.[0] || null,
+    chronology: chronRes.data?.[0] || null,
+    letter: letterRes.data?.[0] || null,
+    communications: commsRes.data || [],
+    activity: activityRes.data || []
+  };
+}
+
+// ==================== REALTIME ====================
+function subscribeToChanges() {
+  if (state.realtimeChannel) state.realtimeChannel.unsubscribe();
+
+  state.realtimeChannel = supabase
+    .channel('fcra-cases-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_cases' }, async () => {
+      state.cases = await fetchCases();
+      renderCaseList();
+      if (state.currentCaseId) {
+        state.caseData = await fetchCaseDetail(state.currentCaseId);
+        renderWorkspace();
+      }
+    })
+    .subscribe();
 }
 
 // ==================== HELPERS ====================
-function uuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
-
-function slugify(str) {
-  return (str || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
-
 function formatDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function getNestedValue(obj, path) {
-  return path.split('.').reduce((o, k) => o && o[k], obj);
+function formatShortDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function setStatus(msg) {
   document.getElementById('status-left').textContent = msg;
 }
 
-function currentCase() {
-  return state.currentCaseId ? state.cases[state.currentCaseId] : null;
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str ?? '');
+  return div.innerHTML;
 }
 
-// ==================== CASE CRUD ====================
-function createCase() {
-  const id = uuid();
-  const now = new Date().toISOString();
-  state.cases[id] = {
-    id,
-    name: 'New Case',
-    clientName: '',
-    createdAt: now,
-    updatedAt: now,
-    stages: STAGES.map((s, i) => ({
-      index: i,
-      name: s.name,
-      status: 'pending',
-      input: null,
-      output: null,
-      submittedAt: null,
-      error: null
-    }))
-  };
-  state.currentCaseId = id;
-  state.currentStage = 0;
-  saveState();
-  renderAll();
-  setStatus('New case created');
+function escAttr(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function switchCase(id) {
-  state.currentCaseId = id;
-  // Go to first incomplete stage
-  const c = state.cases[id];
-  const firstPending = c.stages.findIndex(s => s.status !== 'complete');
-  state.currentStage = firstPending >= 0 ? firstPending : 0;
-  saveState();
-  renderAll();
+function stageIndex(stage) {
+  return STAGE_ORDER.indexOf(stage);
 }
 
-function deleteCase(id) {
-  if (!confirm('Delete this case? This cannot be undone.')) return;
-  delete state.cases[id];
-  if (state.currentCaseId === id) state.currentCaseId = null;
-  saveState();
-  renderAll();
-  setStatus('Case deleted');
+// ==================== INTAKE FORM ====================
+function showIntakeForm() {
+  state.currentCaseId = null;
+  state.caseData = null;
+  renderCaseList();
+
+  const workspace = document.getElementById('workspace');
+  workspace.innerHTML = `
+    <div class="intake-form">
+      <h2>New FCRA Case Intake</h2>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">
+        Submit a new case to run the full FCRA analysis pipeline (Intake Triage, Credit Report Parsing, Case Chronology, Dispute Letter, Client Communications).
+      </p>
+      <div class="form-group">
+        <label>Client Name <span class="required">*</span></label>
+        <input type="text" id="field-client_name" placeholder="Full legal name">
+      </div>
+      <div class="form-group">
+        <label>Client Email</label>
+        <input type="email" id="field-client_email" placeholder="client@example.com">
+      </div>
+      <div class="form-group">
+        <label>Complaint Summary <span class="required">*</span></label>
+        <textarea id="field-complaint_summary" rows="4" placeholder="Describe the FCRA violation or complaint..."></textarea>
+        <div class="help-text">Include details about credit report errors, disputed items, and impact on the client.</div>
+      </div>
+      <div class="form-group">
+        <label>Error Type <span class="required">*</span></label>
+        <select id="field-error_type">
+          <option value="">-- Select --</option>
+          <option value="inaccurate_information">Inaccurate Information</option>
+          <option value="mixed_file">Mixed File</option>
+          <option value="identity_theft">Identity Theft</option>
+          <option value="reinvestigation_failure">Reinvestigation Failure</option>
+          <option value="furnisher_violation">Furnisher Violation</option>
+          <option value="unauthorized_inquiry">Unauthorized Inquiry</option>
+          <option value="obsolete_data">Obsolete Data</option>
+          <option value="background_check">Background Check</option>
+          <option value="medical_debt">Medical Debt</option>
+          <option value="credit_report">Credit Report Error</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Discovery Date</label>
+        <input type="date" id="field-discovery_date">
+        <div class="help-text">When did the client discover the error?</div>
+      </div>
+      <div class="form-group">
+        <label>Dispute History</label>
+        <textarea id="field-dispute_history" rows="3" placeholder="Prior dispute attempts with CRAs..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="field-priority">
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="App.submitIntake()" id="btn-submit">
+          Submit &amp; Run Pipeline
+        </button>
+      </div>
+    </div>
+  `;
 }
 
-function switchStage(idx) {
-  state.currentStage = idx;
-  renderPipeline();
-  renderWorkspace();
-}
+async function submitIntake() {
+  if (state.isSubmitting) return;
 
-// ==================== AUTO-POPULATE ====================
-function getAutoValue(field) {
-  const c = currentCase();
-  if (!c || !field.autoFrom) return '';
+  const clientName = document.getElementById('field-client_name')?.value.trim();
+  const complaintSummary = document.getElementById('field-complaint_summary')?.value.trim();
+  const errorType = document.getElementById('field-error_type')?.value;
 
-  const { stage, path, transform } = field.autoFrom;
-
-  // Special: caseId
-  if (stage === -1 && path === 'caseId') return c.id;
-
-  const stageData = c.stages[stage];
-  if (!stageData || !stageData.input) return '';
-
-  let val = getNestedValue(stageData, path);
-  if (val === undefined || val === null) {
-    // Try output paths
-    val = getNestedValue(stageData, 'output.' + path.replace('input.', ''));
-  }
-  if (!val) return '';
-
-  if (transform === 'slugify') return slugify(String(val));
-  return String(val);
-}
-
-// ==================== API ====================
-async function submitStage() {
-  const c = currentCase();
-  if (!c || state.isSubmitting) return;
-
-  const baseUrl = state.n8nBaseUrl.replace(/\/+$/, '');
-  if (!baseUrl) {
-    alert('Please configure the n8n base URL first.');
-    document.getElementById('n8n-url').focus();
+  if (!clientName || !complaintSummary || !errorType) {
+    setStatus('Please fill in all required fields');
+    ['field-client_name', 'field-complaint_summary', 'field-error_type'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) el.style.borderColor = 'var(--status-error)';
+    });
     return;
   }
 
-  const stageIdx = state.currentStage;
-  const stageDef = STAGES[stageIdx];
-  const payload = collectFormData(stageIdx);
-
-  if (!payload) return; // validation failed
-
-  // Update state
-  c.stages[stageIdx].status = 'in-progress';
-  c.stages[stageIdx].input = payload;
-  c.stages[stageIdx].submittedAt = new Date().toISOString();
-  c.stages[stageIdx].error = null;
-  c.updatedAt = new Date().toISOString();
-
-  // Update case name from first stage
-  if (stageIdx === 0 && payload.client_name) {
-    c.clientName = payload.client_name;
-    c.name = payload.client_name;
-  }
+  const payload = {
+    client_name: clientName,
+    client_email: document.getElementById('field-client_email')?.value.trim() || null,
+    complaint_summary: complaintSummary,
+    error_type: errorType,
+    discovery_date: document.getElementById('field-discovery_date')?.value || null,
+    dispute_history: document.getElementById('field-dispute_history')?.value.trim() || '',
+    priority: document.getElementById('field-priority')?.value || 'medium'
+  };
 
   state.isSubmitting = true;
-  saveState();
-  renderAll();
-  setStatus('Submitting to ' + stageDef.name + '...');
+  const btn = document.getElementById('btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  setStatus('Submitting to FCRA pipeline...');
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min for full pipeline
 
-    const url = baseUrl + stageDef.endpoint;
-    const res = await fetch(url, {
+    const res = await fetch(N8N_BASE_URL + '/webhook/fcra-pipeline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -1199,145 +881,125 @@ async function submitStage() {
 
     clearTimeout(timeout);
 
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status + ': ' + (await res.text()).substring(0, 200));
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).substring(0, 200));
+
+    const result = await res.json();
+    setStatus('Pipeline completed: ' + (result.stages_completed?.length || 0) + ' stages');
+
+    // Refresh case list and select the new case
+    state.cases = await fetchCases();
+    if (result.case_id) {
+      await selectCase(result.case_id);
     }
 
-    const data = await res.json();
-    c.stages[stageIdx].output = data;
-    c.stages[stageIdx].status = 'complete';
-    c.stages[stageIdx].error = null;
-    c.updatedAt = new Date().toISOString();
-    setStatus(stageDef.name + ' completed successfully');
-
   } catch (err) {
-    c.stages[stageIdx].status = 'error';
-    c.stages[stageIdx].error = err.name === 'AbortError' ? 'Request timed out (120s)' : err.message;
-    setStatus('Error: ' + c.stages[stageIdx].error);
+    setStatus('Error: ' + (err.name === 'AbortError' ? 'Request timed out (5min)' : err.message));
+    // Still refresh cases — the case may have been created even if pipeline failed partway
+    state.cases = await fetchCases();
+    renderCaseList();
   }
 
   state.isSubmitting = false;
-  saveState();
-  renderAll();
 }
 
-function collectFormData(stageIdx) {
-  const stageDef = STAGES[stageIdx];
-  const payload = {};
-  let valid = true;
+// ==================== CASE SELECTION ====================
+async function selectCase(id) {
+  state.currentCaseId = id;
+  state.currentTab = 'intake';
+  setStatus('Loading case...');
 
-  for (const field of stageDef.fields) {
-    if (field.type === 'list') {
-      payload[field.name] = collectListData(field.name);
-      continue;
-    }
-    if (field.type === 'multicheck') {
-      payload[field.name] = collectMulticheck(field.name);
-      continue;
-    }
-
-    const el = document.getElementById('field-' + field.name);
-    if (!el) continue;
-
-    let val = el.value.trim();
-    if (field.required && !val) {
-      el.style.borderColor = 'var(--status-error)';
-      valid = false;
-      continue;
-    }
-    el.style.borderColor = '';
-    if (val) payload[field.name] = val;
-  }
-
-  if (!valid) {
-    setStatus('Please fill in all required fields');
-    return null;
-  }
-  return payload;
+  state.caseData = await fetchCaseDetail(id);
+  setStatus('Case loaded');
+  renderCaseList();
+  renderWorkspace();
 }
 
-function collectListData(fieldName) {
-  const container = document.getElementById('list-' + fieldName);
-  if (!container) return [];
-  const items = [];
-  container.querySelectorAll('.list-item').forEach(row => {
-    const item = {};
-    let hasValue = false;
-    row.querySelectorAll('[data-field]').forEach(input => {
-      const val = input.value.trim();
-      if (val) { item[input.dataset.field] = val; hasValue = true; }
-    });
-    if (hasValue) items.push(item);
+function switchTab(tab) {
+  state.currentTab = tab;
+  renderWorkspace();
+}
+
+// ==================== ATTORNEY ACTIONS ====================
+async function approveStage(table, recordId) {
+  const { error } = await supabase
+    .from(table)
+    .update({ approval_status: 'approved', approved_by: 'Attorney', approved_at: new Date().toISOString() })
+    .eq('id', recordId);
+
+  if (error) { setStatus('Error: ' + error.message); return; }
+
+  // Log activity
+  await supabase.from('fcra_case_activity').insert({
+    case_id: state.currentCaseId,
+    activity_type: 'attorney_approval',
+    stage: state.currentTab,
+    actor: 'attorney',
+    summary: 'Approved ' + state.currentTab + ' output',
+    details: { table, record_id: recordId }
   });
-  return items;
+
+  setStatus('Approved');
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  renderWorkspace();
 }
 
-function collectMulticheck(fieldName) {
-  const checks = document.querySelectorAll(`[name="${fieldName}"]:checked`);
-  return Array.from(checks).map(c => c.value);
+async function requestChanges(table, recordId) {
+  const { error } = await supabase
+    .from(table)
+    .update({ approval_status: 'needs_changes' })
+    .eq('id', recordId);
+
+  if (error) { setStatus('Error: ' + error.message); return; }
+
+  await supabase.from('fcra_case_activity').insert({
+    case_id: state.currentCaseId,
+    activity_type: 'changes_requested',
+    stage: state.currentTab,
+    actor: 'attorney',
+    summary: 'Requested changes to ' + state.currentTab + ' output',
+    details: { table, record_id: recordId }
+  });
+
+  // Update case status
+  await supabase.from('fcra_cases').update({ case_status: 'needs_changes' }).eq('id', state.currentCaseId);
+
+  setStatus('Changes requested');
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  renderWorkspace();
 }
 
 // ==================== RENDER: CASE LIST ====================
 function renderCaseList() {
   const container = document.getElementById('case-list');
-  const caseIds = Object.keys(state.cases).sort((a, b) =>
-    new Date(state.cases[b].updatedAt) - new Date(state.cases[a].updatedAt)
-  );
 
-  if (caseIds.length === 0) {
+  if (state.cases.length === 0) {
     container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">No cases yet</div>';
     return;
   }
 
-  container.innerHTML = caseIds.map(id => {
-    const c = state.cases[id];
-    const isActive = id === state.currentCaseId;
-    const dots = c.stages.map(s => `<div class="stage-dot ${s.status}"></div>`).join('');
+  container.innerHTML = state.cases.map(c => {
+    const isActive = c.id === state.currentCaseId;
     return `
-      <div class="case-item ${isActive ? 'active' : ''}" onclick="App.switchCase('${id}')">
+      <div class="case-item ${isActive ? 'active' : ''}" onclick="App.selectCase('${c.id}')">
         <div class="case-name">
-          <span>${escHtml(c.name || 'Untitled')}</span>
-          <button class="btn-danger" onclick="event.stopPropagation();App.deleteCase('${id}')" title="Delete">&#10005;</button>
+          <span>${escHtml(c.client_name || 'Untitled')}</span>
+          <span class="priority-${c.priority || 'medium'}" style="font-size:11px;">${c.priority || ''}</span>
         </div>
-        <div class="case-meta">${formatDate(c.updatedAt)}</div>
-        <div class="case-progress">${dots}</div>
+        <div class="case-meta">
+          <span class="case-stage-badge stage-${c.case_stage}">${STAGE_LABELS[c.case_stage] || c.case_stage}</span>
+          &middot; ${escHtml(c.case_status)} &middot; ${formatShortDate(c.updated_at)}
+        </div>
       </div>
     `;
   }).join('');
 }
 
-// ==================== RENDER: PIPELINE ====================
-function renderPipeline() {
-  const nav = document.getElementById('pipeline-nav');
-  const c = currentCase();
-
-  if (!c) {
-    nav.innerHTML = '';
-    return;
-  }
-
-  const icons = ['&#9878;', '&#128196;', '&#128197;', '&#9993;', '&#128172;'];
-  let html = '';
-  STAGES.forEach((stage, i) => {
-    const stageData = c.stages[i];
-    let cls = stageData.status;
-    if (i === state.currentStage && stageData.status !== 'complete' && stageData.status !== 'error') cls = 'active';
-
-    html += `<div class="pipeline-tab ${cls}" onclick="App.switchStage(${i})">
-      <div class="tab-icon">${stageData.status === 'complete' ? '&#10003;' : icons[i]}</div>
-      <div class="tab-label">${stage.shortName}</div>
-    </div>`;
-  });
-
-  nav.innerHTML = html;
-}
-
 // ==================== RENDER: WORKSPACE ====================
 function renderWorkspace() {
   const workspace = document.getElementById('workspace');
-  const c = currentCase();
+  const d = state.caseData;
 
-  if (!c) {
+  if (!d || !d.case_record) {
     workspace.innerHTML = `<div class="no-case-view">
       <div class="logo">&#9878;</div>
       <div>Create or select a case to begin</div>
@@ -1345,460 +1007,324 @@ function renderWorkspace() {
     return;
   }
 
+  const c = d.case_record;
+  const currentStageIdx = stageIndex(c.case_stage);
+
+  // Pipeline progress bar
+  const pipelineSteps = ['intake', 'parsing', 'chronology', 'letter', 'comms', 'review'];
+  let pipelineHtml = '<div class="pipeline-bar">';
+  pipelineSteps.forEach((step, i) => {
+    const stepIdx = stageIndex(step);
+    let cls = 'pending';
+    if (stepIdx < currentStageIdx) cls = 'done';
+    else if (stepIdx === currentStageIdx) cls = 'active';
+    pipelineHtml += `<div class="pipeline-step ${cls}">${STAGE_LABELS[step]}</div>`;
+    if (i < pipelineSteps.length - 1) pipelineHtml += '<span class="pipeline-arrow">&#9654;</span>';
+  });
+  pipelineHtml += '</div>';
+
+  // Stage tabs
+  const tabs = [
+    { key: 'intake', label: 'Intake Triage', data: d.triage },
+    { key: 'parsing', label: 'Credit Report', data: d.parsed },
+    { key: 'chronology', label: 'Chronology', data: d.chronology },
+    { key: 'letter', label: 'Dispute Letter', data: d.letter },
+    { key: 'comms', label: 'Communications', data: d.communications?.length > 0 },
+    { key: 'activity', label: 'Activity Log', data: d.activity?.length > 0 }
+  ];
+
+  let tabsHtml = '<div class="stage-tabs">';
+  tabs.forEach(t => {
+    const active = t.key === state.currentTab ? 'active' : '';
+    const hasData = t.data ? 'has-data' : '';
+    tabsHtml += `<div class="stage-tab ${active} ${hasData}" onclick="App.switchTab('${t.key}')">${t.label}</div>`;
+  });
+  tabsHtml += '</div>';
+
+  // Stage content
+  let contentHtml = '';
+  switch (state.currentTab) {
+    case 'intake': contentHtml = renderIntakeTab(d); break;
+    case 'parsing': contentHtml = renderParserTab(d); break;
+    case 'chronology': contentHtml = renderChronologyTab(d); break;
+    case 'letter': contentHtml = renderLetterTab(d); break;
+    case 'comms': contentHtml = renderCommsTab(d); break;
+    case 'activity': contentHtml = renderActivityTab(d); break;
+  }
+
   workspace.innerHTML = `
-    <div id="form-panel">${renderForm()}</div>
-    <div id="results-panel" style="position:relative;">${renderResults()}${state.isSubmitting ? renderLoading() : ''}</div>
+    <div class="case-detail">
+      <div class="case-detail-header">
+        <div>
+          <h2>${escHtml(c.client_name)}</h2>
+          <div class="case-id">${c.id}</div>
+        </div>
+        <div style="text-align:right;">
+          <span class="case-stage-badge stage-${c.case_stage}">${STAGE_LABELS[c.case_stage] || c.case_stage}</span>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${escHtml(c.case_status)}</div>
+        </div>
+      </div>
+      ${pipelineHtml}
+      ${tabsHtml}
+      <div class="draft-banner">DRAFT ANALYSIS &mdash; FOR ATTORNEY REVIEW ONLY</div>
+      ${contentHtml}
+    </div>
   `;
 }
 
-// ==================== RENDER: FORM ====================
-function renderForm() {
-  const c = currentCase();
-  const idx = state.currentStage;
-  const stageDef = STAGES[idx];
-  const stageData = c.stages[idx];
-  const savedInput = stageData.input || {};
+// ==================== TAB RENDERERS ====================
+function renderIntakeTab(d) {
+  const t = d.triage;
+  if (!t) return '<div class="stage-content"><div class="stage-empty">Intake triage has not been completed yet.</div></div>';
 
-  let html = `<div class="panel-header">
-    <h3>${stageDef.name}</h3>
-  </div>`;
+  const s = t.full_synthesis || {};
+  const viability = s.viability_assessment || {};
 
-  for (const field of stageDef.fields) {
-    // Get saved or auto-populated value
-    let value = savedInput[field.name] || '';
-    let isAuto = false;
-    if (!value && field.autoFrom) {
-      value = getAutoValue(field);
-      isAuto = !!value;
-    }
+  let html = '<div class="stage-content">';
 
-    if (field.type === 'list') {
-      html += renderListField(field, savedInput[field.name] || []);
-      continue;
-    }
-
-    if (field.type === 'multicheck') {
-      const checked = savedInput[field.name] || [];
-      html += `<div class="form-group"><label>${escHtml(field.label)}</label>`;
-      html += field.options.map(opt =>
-        `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;color:var(--text-primary);cursor:pointer;">
-          <input type="checkbox" name="${field.name}" value="${opt.value}" ${checked.includes(opt.value) ? 'checked' : ''}> ${opt.label}
-        </label>`
-      ).join('');
-      html += `</div>`;
-      continue;
-    }
-
-    if (field.collapsible) {
-      html += `<details class="collapsible-section">
-        <summary>${escHtml(field.label)}</summary>
-        <div class="section-content">
-          <div class="form-group">
-            <textarea id="field-${field.name}" class="${field.mono ? 'mono' : ''}" rows="4">${escHtml(typeof value === 'string' ? value : JSON.stringify(value, null, 2))}</textarea>
-            ${field.help ? `<div class="help-text">${escHtml(field.help)}</div>` : ''}
-          </div>
-        </div>
-      </details>`;
-      continue;
-    }
-
-    const autoCls = isAuto ? ' auto-populated' : '';
-    html += `<div class="form-group"><label>${escHtml(field.label)}${field.required ? ' <span class="required">*</span>' : ''}</label>`;
-
-    if (field.type === 'select') {
-      html += `<select id="field-${field.name}"${autoCls}>`;
-      for (const opt of field.options) {
-        const sel = (typeof value === 'string' ? value : '') === opt.value ? ' selected' : '';
-        html += `<option value="${opt.value}"${sel}>${escHtml(opt.label)}</option>`;
-      }
-      html += `</select>`;
-    } else if (field.type === 'textarea') {
-      html += `<textarea id="field-${field.name}" class="${field.mono ? 'mono' : ''}${autoCls}" rows="${field.mono ? 8 : 4}">${escHtml(typeof value === 'string' ? value : '')}</textarea>`;
-    } else if (field.type === 'date') {
-      const today = new Date().toISOString().split('T')[0];
-      const fiveYearsAgo = new Date(new Date().setFullYear(new Date().getFullYear() - 5)).toISOString().split('T')[0];
-      html += `<input type="date" id="field-${field.name}" value="${escAttr(typeof value === 'string' ? value : '')}" class="${autoCls}" min="${fiveYearsAgo}" max="${today}">`;
-    } else {
-      html += `<input type="${field.type || 'text'}" id="field-${field.name}" value="${escAttr(typeof value === 'string' ? value : '')}" class="${autoCls}">`;
-    }
-
-    if (field.help) html += `<div class="help-text">${escHtml(field.help)}</div>`;
-    html += `</div>`;
-  }
-
-  html += `<div class="form-actions">
-    <button class="btn btn-primary" onclick="App.submitStage()" ${state.isSubmitting ? 'disabled' : ''}>
-      ${state.isSubmitting ? 'Submitting...' : 'Submit'}
-    </button>
-  </div>`;
-
-  return html;
-}
-
-function renderListField(field, items) {
-  let html = `<div class="form-group"><label>${escHtml(field.label)}</label>
-    <div class="dynamic-list" id="list-${field.name}">`;
-
-  const renderItem = (item, i) => {
-    let row = `<div class="list-item">`;
-    for (const sub of field.itemFields) {
-      const val = item[sub.name] || '';
-      if (sub.type === 'select') {
-        row += `<select data-field="${sub.name}" style="flex:1;">`;
-        for (const opt of sub.options) {
-          row += `<option value="${opt.value}" ${val === opt.value ? 'selected' : ''}>${escHtml(opt.label)}</option>`;
-        }
-        row += `</select>`;
-      } else {
-        row += `<input type="text" data-field="${sub.name}" value="${escAttr(val)}" placeholder="${escAttr(sub.label)}">`;
-      }
-    }
-    row += `<button class="btn-remove" onclick="this.parentElement.remove()">&times;</button></div>`;
-    return row;
-  };
-
-  items.forEach((item, i) => { html += renderItem(item, i); });
-  html += `</div>`;
-
-  // Template for new items
-  const emptyItem = {};
-  field.itemFields.forEach(f => { emptyItem[f.name] = ''; });
-  const templateHtml = renderItem(emptyItem, 0).replace(/"/g, '&quot;');
-
-  html += `<button class="btn-add-item" onclick="addListItem('list-${field.name}', '${field.name}')">+ Add Item</button></div>`;
-  return html;
-}
-
-// ==================== RENDER: RESULTS ====================
-function renderResults() {
-  const c = currentCase();
-  const idx = state.currentStage;
-  const stageData = c.stages[idx];
-
-  let html = `<div class="panel-header">
-    <h3>Results</h3>
-    ${stageData.output ? `<button class="btn btn-secondary btn-sm" onclick="copyRawJson(${idx})">Copy JSON</button>` : ''}
-  </div>`;
-
-  if (stageData.error) {
-    html += `<div class="error-banner">
-      <span class="error-message">${escHtml(stageData.error)}</span>
-      <button class="btn btn-secondary btn-sm" onclick="App.submitStage()">Retry</button>
-    </div>`;
-  }
-
-  if (!stageData.output) {
-    html += `<div class="result-empty">
-      <div class="empty-icon">&#9744;</div>
-      <div>No results yet. Submit the form to run this stage.</div>
-    </div>`;
-    return html;
-  }
-
-  html += `<div class="draft-banner">DRAFT ANALYSIS &mdash; FOR ATTORNEY REVIEW ONLY</div>`;
-
-  // Stage-specific rendering
-  switch (idx) {
-    case 0: html += renderIntakeResults(stageData.output); break;
-    case 1: html += renderParserResults(stageData.output); break;
-    case 2: html += renderChronologyResults(stageData.output); break;
-    case 3: html += renderLetterResults(stageData.output); break;
-    case 4: html += renderCommsResults(stageData.output); break;
-  }
-
-  // Raw JSON (collapsed)
-  html += renderResultSection('Raw JSON Response', `<div class="raw-json">${escHtml(JSON.stringify(stageData.output, null, 2))}</div>`, false);
-
-  return html;
-}
-
-function renderIntakeResults(data) {
-  // Normalize — handle different response shapes
-  const s = data.synthesis || data.formattedResponse || data;
-  const viability = s.viability_assessment || s.case_viability || {};
-  const violations = s.violation_classification || s.violations || {};
-  const sol = s.statute_of_limitations || s.sol || {};
-  const actions = s.attorney_action_items || data.attorney_action_items || [];
-  const priority = s.priority_classification || data.priority_classification || 'unknown';
-  const confidence = s.confidence_score || data.confidence_score || s.confidence || 0;
-  const damages = s.damages_assessment || {};
-
-  let html = '';
-
-  // Summary cards
   html += `<div class="summary-cards">
-    <div class="summary-card"><div class="card-value">${viability.score || viability.viability_score || '--'}</div><div class="card-label">Viability Score</div></div>
-    <div class="summary-card"><div class="card-value"><span class="badge badge-${priority === 'high' ? 'critical' : priority === 'medium' ? 'medium' : 'low'}">${priority}</span></div><div class="card-label">Priority</div></div>
-    <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : confidence}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card"><div class="card-value">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
+    <div class="summary-card"><div class="card-value"><span class="badge badge-${t.priority_classification === 'high' ? 'critical' : t.priority_classification === 'medium' ? 'medium' : 'low'}">${escHtml(t.priority_classification || '--')}</span></div><div class="card-label">Priority</div></div>
+    <div class="summary-card"><div class="card-value">${t.confidence_score != null ? (Number(t.confidence_score) > 1 ? t.confidence_score : (Number(t.confidence_score) * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card"><div class="card-value">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
   </div>`;
 
-  // Violation classification with section explanations
-  if (violations.primary_type || violations.type || violations.violation_type || violations.fcra_sections) {
-    let violHtml = `<ul class="result-list">
-      <li><span class="item-label">Violation Type</span><div class="item-value"><strong>${escHtml(violations.primary_type || violations.type || violations.violation_type || 'Unknown')}</strong></div></li>
-      <li><span class="item-label">Case Category</span><div class="item-value"><span class="badge badge-${(violations.case_category || violations.category) === 'high_value' ? 'high' : 'medium'}">${escHtml(violations.case_category || violations.category || 'standard')}</span></div></li>`;
-    if (violations.fcra_sections) {
-      violHtml += `<li><span class="item-label">FCRA Sections</span><div class="item-value">${escHtml(Array.isArray(violations.fcra_sections) ? violations.fcra_sections.join(', ') : violations.fcra_sections)}</div></li>`;
-    }
-    violHtml += `</ul>`;
-
-    // Section explanations (enhanced output)
-    const sectionExps = violations.section_explanations || [];
-    if (sectionExps.length > 0) {
-      violHtml += `<div style="margin-top:10px;padding:10px;background:rgba(212,168,67,0.08);border-radius:6px;border-left:3px solid var(--gold);">
-        <div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:8px;text-transform:uppercase;">Applicable FCRA Provisions</div>`;
-      sectionExps.forEach(se => {
-        violHtml += `<div style="margin-bottom:10px;">
-          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${escHtml(se.section)} - ${escHtml(se.title || '')}</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin:3px 0;">${escHtml(se.text || '')}</div>
-          <div style="font-size:12px;color:var(--gold);font-style:italic;">Applies here: ${escHtml(se.applies_when || '')}</div>
-        </div>`;
-      });
-      violHtml += `</div>`;
-    }
-
-    html += renderResultSection('FCRA Violation Analysis', violHtml, true);
-  }
-
-  // Statute of Limitations — enhanced with full analysis
-  if (sol.status || sol.sol_status || sol.sol_analysis) {
-    let solHtml = `<ul class="result-list">
-      <li><span class="item-label">Status</span><div class="item-value"><span class="badge badge-${(sol.status || sol.sol_status) === 'expired' ? 'critical' : (sol.status || sol.sol_status) === 'concern' ? 'high' : 'medium'}">${escHtml(sol.status || sol.sol_status || 'Unknown')}</span></div></li>
-    </ul>`;
-
-    // Detailed SOL analysis text
-    const solAnalysis = sol.sol_analysis || '';
-    if (solAnalysis && solAnalysis !== 'Statute of limitations analysis not available - verify discovery and violation dates.') {
-      solHtml += `<div style="margin-top:10px;padding:12px;background:rgba(248,113,113,0.06);border-radius:6px;border-left:3px solid #f87171;">
-        <div style="font-size:12px;font-weight:600;color:#f87171;margin-bottom:6px;text-transform:uppercase;">SOL Analysis</div>
-        <pre style="font-size:12px;color:var(--text-primary);white-space:pre-wrap;font-family:inherit;margin:0;line-height:1.5;">${escHtml(solAnalysis)}</pre>
-      </div>`;
-    }
-
-    // SOL details with deadlines
-    const details = sol.details || {};
-    if (details.sol_2yr_discovery && details.sol_2yr_discovery.deadline) {
-      const d = details.sol_2yr_discovery;
-      solHtml += `<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);">
-        <strong>2-Year Discovery Rule:</strong> Deadline ${escHtml(d.deadline)} ${d.expired ? '<span style="color:#f87171;font-weight:600;"> - POTENTIALLY EXPIRED</span>' : '(' + d.days_remaining + ' days remaining)'}
-      </div>`;
-    }
-    if (details.sol_5yr_violation && details.sol_5yr_violation.deadline) {
-      const d = details.sol_5yr_violation;
-      solHtml += `<div style="margin-top:4px;font-size:12px;color:var(--text-secondary);">
-        <strong>5-Year Absolute Limit:</strong> Deadline ${escHtml(d.deadline)} ${d.expired ? '<span style="color:#f87171;font-weight:600;"> - EXPIRED</span>' : '(' + d.days_remaining + ' days remaining)'}
-      </div>`;
-    }
-
-    html += renderResultSection('Statute of Limitations', solHtml, true);
-  }
-
-  // Damages assessment
-  if (damages.damages_type || damages.damages_category) {
-    html += renderResultSection('Damages Assessment', `<ul class="result-list">
-      <li><span class="item-label">Damages Type</span><div class="item-value">${escHtml(damages.damages_type || 'Undetermined')}</div></li>
-      <li><span class="item-label">Typical Range</span><div class="item-value">${escHtml(damages.damages_category || 'See analysis')}</div></li>
+  // Violation
+  if (t.violation_type) {
+    html += renderSection('FCRA Violation Analysis', `<ul class="result-list">
+      <li><span class="item-label">Violation Type</span><div class="item-value"><strong>${escHtml(t.violation_type)}</strong></div></li>
+      <li><span class="item-label">Case Category</span><div class="item-value">${escHtml(t.case_category || '--')}</div></li>
+      ${t.fcra_sections?.length ? `<li><span class="item-label">FCRA Sections</span><div class="item-value">${escHtml(t.fcra_sections.join(', '))}</div></li>` : ''}
     </ul>`, true);
   }
 
-  // Attorney Action Items — enhanced rendering with categorized items
-  if (actions.length > 0) {
-    let actHtml = '<div style="font-size:13px;color:var(--text-primary);">';
-    actions.forEach((a, i) => {
-      const text = typeof a === 'string' ? a : a.description || JSON.stringify(a);
-      const isHeader = text.match(/^[A-Z][A-Z\s\-]+:/);
-      if (isHeader) {
-        const [label, ...rest] = text.split(':');
-        const body = rest.join(':').trim();
-        actHtml += `<div style="margin:${i > 0 ? '12px' : '0'} 0 4px 0;font-weight:600;color:var(--gold);font-size:12px;text-transform:uppercase;">${escHtml(label)}</div>`;
-        if (body) {
-          actHtml += `<div style="margin-bottom:8px;padding-left:12px;border-left:2px solid rgba(212,168,67,0.3);line-height:1.5;">${escHtml(body)}</div>`;
-        }
-      } else {
-        actHtml += `<div style="margin-bottom:6px;padding-left:12px;line-height:1.5;">${escHtml(text)}</div>`;
-      }
-    });
-    actHtml += '</div>';
-    html += renderResultSection('Attorney Action Items', actHtml, true);
-  }
-
-  // Evidence needed
-  const evidence = violations.evidence_needed || [];
-  if (evidence.length > 0) {
-    html += renderResultSection('Evidence to Gather', `<ul style="padding-left:20px;font-size:13px;color:var(--text-primary);">
-      ${evidence.map(e => `<li style="margin-bottom:4px;">${escHtml(typeof e === 'string' ? e : e.description || JSON.stringify(e))}</li>`).join('')}
+  // SOL
+  if (t.sol_status) {
+    html += renderSection('Statute of Limitations', `<ul class="result-list">
+      <li><span class="item-label">Status</span><div class="item-value"><span class="badge badge-${t.sol_status === 'expired' ? 'critical' : t.sol_status === 'concern' ? 'high' : 'medium'}">${escHtml(t.sol_status)}</span></div></li>
     </ul>`, true);
   }
 
-  // Risk factors
-  const risks = s.risk_factors || data.risk_factors || [];
-  if (risks.length > 0) {
-    html += renderResultSection('Risk Factors', `<ul style="padding-left:20px;font-size:13px;color:#f87171;">
-      ${risks.map(r => `<li style="margin-bottom:4px;">${escHtml(typeof r === 'string' ? r : r.description || JSON.stringify(r))}</li>`).join('')}
-    </ul>`, true);
-  }
-
-  return html;
-}
-
-function renderParserResults(data) {
-  const s = data.synthesis || data;
-  const tradelines = s.tradelines_extracted || [];
-  const errors = s.errors_found || [];
-  const discrepancies = s.bureau_discrepancies || [];
-  const mixed = s.mixed_file_analysis || {};
-  const actions = s.attorney_action_items || [];
-  const severity = s.overall_error_severity || 'unknown';
-  const confidence = s.confidence_score || 0;
-
-  let html = `<div class="summary-cards">
-    <div class="summary-card"><div class="card-value">${tradelines.length}</div><div class="card-label">Tradelines</div></div>
-    <div class="summary-card"><div class="card-value">${errors.length}</div><div class="card-label">Errors</div></div>
-    <div class="summary-card"><div class="card-value">${discrepancies.length}</div><div class="card-label">Discrepancies</div></div>
-    <div class="summary-card"><div class="card-value"><span class="badge badge-${severity === 'critical' ? 'critical' : severity === 'high' ? 'high' : 'medium'}">${severity}</span></div><div class="card-label">Severity</div></div>
-  </div>`;
-
-  // Mixed file
-  if (mixed.mixed_file_probability !== undefined || mixed.probability !== undefined) {
-    const prob = mixed.mixed_file_probability || mixed.probability || 0;
-    const risk = mixed.risk_level || (prob >= 0.7 ? 'high' : prob >= 0.4 ? 'medium' : 'low');
-    html += renderResultSection('Mixed File Analysis', `<ul class="result-list">
-      <li><span class="item-label">Probability</span><div class="item-value">${(prob * 100).toFixed(0)}%</div></li>
-      <li><span class="item-label">Risk Level</span><div class="item-value"><span class="badge badge-${risk}">${risk}</span></div></li>
-      ${mixed.indicators && mixed.indicators.length ? `<li><span class="item-label">Indicators</span><div class="item-value">${mixed.indicators.map(i => escHtml(i)).join('<br>')}</div></li>` : ''}
-    </ul>`, true);
-  }
-
-  // Errors
-  if (errors.length > 0) {
-    html += renderResultSection(`Errors Found (${errors.length})`, `<ul class="result-list">
-      ${errors.map(e => `<li>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span>${escHtml(e.error_description || e.violation_type || 'Error')}</span>
-          <span class="badge badge-${e.severity || 'medium'}">${e.severity || 'medium'}</span>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${escHtml(e.fcra_section || '')}</div>
-      </li>`).join('')}
-    </ul>`, true);
-  }
-
-  // Actions
-  if (actions.length > 0) {
-    html += renderResultSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
-      ${actions.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+  // Attorney actions
+  if (t.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${t.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
     </ol>`, true);
   }
 
+  // Risk factors
+  if (t.risk_factors?.length) {
+    html += renderSection('Risk Factors', `<ul style="padding-left:20px;font-size:13px;color:#f87171;">
+      ${t.risk_factors.map(r => `<li style="margin-bottom:4px;">${escHtml(r)}</li>`).join('')}
+    </ul>`, true);
+  }
+
+  // Raw synthesis
+  if (t.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(t.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
   return html;
 }
 
-function renderChronologyResults(data) {
-  const s = data.synthesis || data.formattedResponse?.case_chronology || data.case_chronology || data;
-  const chronology = s.chronology || s.timeline || [];
-  const deadlines = s.deadline_analysis || {};
-  const gaps = s.documentation_gaps || [];
-  const violations = s.violations_identified || [];
-  const actions = s.attorney_action_items || [];
-  const confidence = s.confidence_score || 0;
+function renderParserTab(d) {
+  const p = d.parsed;
+  if (!p) return '<div class="stage-content"><div class="stage-empty">Credit report parsing has not been completed yet.</div></div>';
 
-  let html = `<div class="summary-cards">
-    <div class="summary-card"><div class="card-value">${Array.isArray(chronology) ? chronology.length : '--'}</div><div class="card-label">Events</div></div>
-    <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
-    <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.length : '--'}</div><div class="card-label">Gaps</div></div>
-    <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+  const s = p.full_synthesis || {};
+
+  let html = '<div class="stage-content">';
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${p.tradeline_count ?? '--'}</div><div class="card-label">Tradelines</div></div>
+    <div class="summary-card"><div class="card-value">${p.total_errors ?? '--'}</div><div class="card-label">Errors</div></div>
+    <div class="summary-card"><div class="card-value">${p.confidence_score != null ? (Number(p.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
-  if (Array.isArray(chronology) && chronology.length > 0) {
-    html += renderResultSection('Timeline', `<ul class="result-list">
-      ${chronology.map(e => `<li>
-        <span class="item-label">${escHtml(e.date || e.timestamp || '')}</span>
-        <div class="item-value">${escHtml(e.event || e.description || JSON.stringify(e))}</div>
+  if (p.errors_found?.length) {
+    html += renderSection('Errors Found (' + p.errors_found.length + ')', `<ul class="result-list">
+      ${p.errors_found.map(e => `<li>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${escHtml(e.error_description || e.violation_type || 'Error')}</span>
+          <span class="badge badge-${e.severity || 'medium'}">${escHtml(e.severity || 'medium')}</span>
+        </div>
       </li>`).join('')}
     </ul>`, true);
   }
 
-  if (Array.isArray(gaps) && gaps.length > 0) {
-    html += renderResultSection('Documentation Gaps', `<ul style="padding-left:20px;font-size:13px;color:var(--accent-amber);">
+  if (p.bureau_discrepancies?.length) {
+    html += renderSection('Bureau Discrepancies', `<ul class="result-list">
+      ${p.bureau_discrepancies.map(d => `<li>${escHtml(typeof d === 'string' ? d : d.description || JSON.stringify(d))}</li>`).join('')}
+    </ul>`, true);
+  }
+
+  if (p.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${p.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  if (p.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(p.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderChronologyTab(d) {
+  const ch = d.chronology;
+  if (!ch) return '<div class="stage-content"><div class="stage-empty">Case chronology has not been built yet.</div></div>';
+
+  let html = '<div class="stage-content">';
+
+  const timeline = ch.chronology || [];
+  const violations = ch.violations_identified || [];
+  const gaps = ch.documentation_gaps || [];
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${Array.isArray(timeline) ? timeline.length : '--'}</div><div class="card-label">Events</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.length : '--'}</div><div class="card-label">Gaps</div></div>
+    <div class="summary-card"><div class="card-value">${ch.confidence_score != null ? (Number(ch.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  if (timeline.length) {
+    html += renderSection('Timeline', `<ul class="result-list">
+      ${timeline.map(e => `<li><span class="item-label">${escHtml(e.date || e.timestamp || '')}</span><div class="item-value">${escHtml(e.event || e.description || JSON.stringify(e))}</div></li>`).join('')}
+    </ul>`, true);
+  }
+
+  if (gaps.length) {
+    html += renderSection('Documentation Gaps', `<ul style="padding-left:20px;font-size:13px;color:var(--accent-amber);">
       ${gaps.map(g => `<li style="margin-bottom:4px;">${escHtml(typeof g === 'string' ? g : g.description || JSON.stringify(g))}</li>`).join('')}
     </ul>`, true);
   }
 
-  if (actions.length > 0) {
-    html += renderResultSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
-      ${actions.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : a.description || JSON.stringify(a))}</li>`).join('')}
+  if (ch.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${ch.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : JSON.stringify(a))}</li>`).join('')}
     </ol>`, true);
   }
 
+  if (ch.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(ch.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
   return html;
 }
 
-function renderLetterResults(data) {
-  const s = data.synthesis || data;
-  const letter = s.letter || s;
-  const draft = letter.draft || s.draft || s.letter_text || '';
-  const citations = letter.fcra_sections_cited || s.fcra_sections_cited || [];
-  const attorneyActions = letter.required_attorney_actions || s.required_attorney_actions || [];
-  const confidence = letter.confidence || s.confidence_score || s.confidence || 0;
+function renderLetterTab(d) {
+  const l = d.letter;
+  if (!l) return '<div class="stage-content"><div class="stage-empty">Dispute letter has not been drafted yet.</div></div>';
 
-  let html = `<div class="summary-cards">
-    <div class="summary-card"><div class="card-value">${citations.length}</div><div class="card-label">FCRA Citations</div></div>
-    <div class="summary-card"><div class="card-value">${typeof confidence === 'number' ? (confidence > 1 ? confidence : (confidence * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+  let html = '<div class="stage-content">';
+
+  // Attorney approval actions
+  if (l.approval_status === 'pending') {
+    html += `<div class="attorney-actions">
+      <span class="label">Attorney Review Required</span>
+      <button class="btn btn-approve" onclick="App.approveStage('fcra_letters', '${l.id}')">Approve Letter</button>
+      <button class="btn btn-reject" onclick="App.requestChanges('fcra_letters', '${l.id}')">Request Changes</button>
+    </div>`;
+  } else if (l.approval_status === 'approved') {
+    html += `<div style="padding:10px 16px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:#4ade80;">
+      Approved by ${escHtml(l.approved_by || 'Attorney')} on ${formatDate(l.approved_at)}
+    </div>`;
+  } else if (l.approval_status === 'needs_changes') {
+    html += `<div style="padding:10px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:#f87171;">
+      Changes requested — awaiting revision
+    </div>`;
+  }
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${escHtml(l.letter_type || '--')}</div><div class="card-label">Letter Type</div></div>
+    <div class="summary-card"><div class="card-value">${escHtml(l.recipient_type || '--')}</div><div class="card-label">Recipient</div></div>
+    <div class="summary-card"><div class="card-value">${l.confidence_score != null ? (Number(l.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
-  // Letter preview
-  if (draft) {
-    html += renderResultSection('Letter Draft', `<div class="document-preview">${escHtml(typeof draft === 'string' ? draft : JSON.stringify(draft, null, 2))}</div>
-      <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="copyToClipboard(${JSON.stringify(typeof draft === 'string' ? draft : JSON.stringify(draft)).replace(/'/g, "\\'")})">Copy Letter Text</button>`, true);
+  if (l.letter_body) {
+    html += renderSection('Letter Draft', `<div class="document-preview">${escHtml(l.letter_body)}</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="navigator.clipboard.writeText(${escAttr(JSON.stringify(l.letter_body))});App.setStatus('Copied')">Copy Letter Text</button>`, true);
   }
 
-  if (attorneyActions.length > 0) {
-    html += renderResultSection('Required Attorney Actions', `<ul style="padding-left:20px;font-size:13px;color:var(--accent-amber);">
-      ${attorneyActions.map(a => `<li style="margin-bottom:4px;">${escHtml(a)}</li>`).join('')}
-    </ul>`, true);
+  if (l.fcra_citations?.length) {
+    html += renderSection('FCRA Citations', `<div style="font-size:13px;">${l.fcra_citations.map(c => `<span class="badge badge-medium" style="margin:2px;">${escHtml(c)}</span>`).join(' ')}</div>`, true);
   }
 
-  if (citations.length > 0) {
-    html += renderResultSection('FCRA Sections Cited', `<div style="font-size:13px;">${citations.map(c => `<span class="badge badge-medium" style="margin:2px;">${escHtml(c)}</span>`).join(' ')}</div>`, true);
-  }
-
-  return html;
-}
-
-function renderCommsResults(data) {
-  const s = data.synthesis || data;
-  const comm = s.communication || s;
-  const subject = comm.subject_line || '';
-  const body = comm.message_body || '';
-  const clientActions = comm.action_items_for_client || [];
-  const meta = data.metadata || s.metadata || {};
-  const tone = meta.tone_check || '';
-
-  let html = '';
-
-  if (subject || body) {
-    html += renderResultSection('Message Preview', `<div class="email-preview">
-      <div class="email-header">
-        ${subject ? `<div class="email-field"><strong>Subject:</strong> ${escHtml(subject)}</div>` : ''}
-        ${comm.greeting ? `<div class="email-field"><strong>Greeting:</strong> ${escHtml(comm.greeting)}</div>` : ''}
-        ${tone ? `<div class="email-field"><strong>Tone:</strong> <span class="badge badge-medium">${escHtml(tone)}</span></div>` : ''}
-      </div>
-      <div class="email-body">${escHtml(body)}</div>
-    </div>
-    <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="copyToClipboard(${JSON.stringify(body).replace(/'/g, "\\'")})">Copy Message</button>`, true);
-  }
-
-  if (clientActions.length > 0) {
-    html += renderResultSection('Client Action Items', `<ol style="padding-left:20px;font-size:13px;">
-      ${clientActions.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : a.description || JSON.stringify(a))}</li>`).join('')}
+  if (l.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${l.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
     </ol>`, true);
   }
 
+  if (l.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(l.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
   return html;
 }
 
-// Result section helper
-function renderResultSection(title, content, startOpen = false) {
-  const id = 'section-' + title.replace(/\W+/g, '-').toLowerCase();
+function renderCommsTab(d) {
+  const comms = d.communications || [];
+  if (!comms.length) return '<div class="stage-content"><div class="stage-empty">No communications generated yet.</div></div>';
+
+  let html = '<div class="stage-content">';
+
+  comms.forEach((comm, i) => {
+    // Approval actions for pending comms
+    let approvalHtml = '';
+    if (comm.approval_status === 'pending') {
+      approvalHtml = `<div class="attorney-actions" style="margin-top:12px;">
+        <span class="label">Review Required</span>
+        <button class="btn btn-approve" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve</button>
+        <button class="btn btn-reject" onclick="App.requestChanges('fcra_communications', '${comm.id}')">Request Changes</button>
+      </div>`;
+    } else if (comm.approval_status === 'approved') {
+      approvalHtml = `<div style="margin-top:8px;font-size:11px;color:#4ade80;">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</div>`;
+    }
+
+    html += renderSection(
+      `${escHtml(comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+      `<div class="email-preview">
+        <div class="email-header">
+          ${comm.subject_line ? `<div class="email-field"><strong>Subject:</strong> ${escHtml(comm.subject_line)}</div>` : ''}
+          <div class="email-field"><strong>Type:</strong> ${escHtml(comm.message_type)}</div>
+          <div class="email-field"><strong>Trigger:</strong> ${escHtml(comm.trigger_source)}</div>
+        </div>
+        <div class="email-body">${escHtml(comm.message_body || '')}</div>
+      </div>${approvalHtml}`,
+      i === 0
+    );
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function renderActivityTab(d) {
+  const activity = d.activity || [];
+  if (!activity.length) return '<div class="stage-content"><div class="stage-empty">No activity recorded yet.</div></div>';
+
+  let html = '<div class="stage-content"><div class="activity-timeline"><h3>Activity Timeline</h3>';
+
+  activity.forEach(a => {
+    html += `<div class="activity-item">
+      <span class="time">${formatShortDate(a.created_at)}</span>
+      <span class="actor">${escHtml(a.actor || 'system')}</span>
+      <span class="summary">${escHtml(a.summary || a.activity_type)}</span>
+    </div>`;
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+// ==================== SECTION HELPER ====================
+function renderSection(title, content, startOpen = false) {
   return `<div class="result-section">
     <div class="result-section-header ${startOpen ? 'open' : ''}" onclick="toggleSection(this)">
       ${escHtml(title)}
@@ -1808,135 +1334,27 @@ function renderResultSection(title, content, startOpen = false) {
   </div>`;
 }
 
-function renderLoading() {
-  return `<div class="loading-overlay">
-    <div class="spinner"></div>
-    <div class="loading-text">Processing with AI agent... this may take 30-60 seconds</div>
-  </div>`;
-}
-
-// ==================== RENDER: ALL ====================
-function renderAll() {
-  document.getElementById('n8n-url').value = state.n8nBaseUrl;
-  document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  renderCaseList();
-  renderPipeline();
-  renderWorkspace();
-}
-
-// ==================== EXPORT / PRINT ====================
-function exportCurrentCase() {
-  const c = currentCase();
-  if (!c) { alert('No case selected'); return; }
-  const lines = [];
-  lines.push('FCRA CASE REPORT — DRAFT ANALYSIS');
-  lines.push('Generated: ' + new Date().toLocaleString());
-  lines.push('Case: ' + (c.name || 'Untitled'));
-  lines.push('='.repeat(60));
-  const stageNames = ['Intake Triage', 'Credit Report Parser', 'Case Chronology', 'Dispute Letter', 'Client Comms'];
-  (c.stages || []).forEach((s, i) => {
-    if (!s) return;
-    lines.push('');
-    lines.push('--- ' + stageNames[i] + ' ---');
-    if (s.input && Object.keys(s.input).length) {
-      lines.push('');
-      lines.push('INPUT:');
-      Object.entries(s.input).forEach(([k, v]) => {
-        if (v !== '' && v != null) lines.push('  ' + k.replace(/_/g, ' ').toUpperCase() + ': ' + v);
-      });
-    }
-    if (s.result) {
-      lines.push('');
-      lines.push('RESULT:');
-      const r = s.result;
-      if (r.viability_score != null) lines.push('  Viability Score: ' + r.viability_score + '/100');
-      if (r.priority) lines.push('  Priority: ' + r.priority);
-      if (r.confidence) lines.push('  Confidence: ' + r.confidence + '%');
-      if (r.violation_classification) {
-        const vc = r.violation_classification;
-        if (vc.primary_violations && vc.primary_violations.length) {
-          lines.push('');
-          lines.push('  VIOLATIONS IDENTIFIED:');
-          vc.primary_violations.forEach(v => lines.push('    - ' + v));
-        }
-        if (vc.section_explanations && vc.section_explanations.length) {
-          lines.push('');
-          lines.push('  FCRA SECTIONS:');
-          vc.section_explanations.forEach(se => {
-            lines.push('    ' + se.section + ' — ' + se.title);
-            lines.push('      ' + se.explanation);
-          });
-        }
-        if (vc.evidence_needed && vc.evidence_needed.length) {
-          lines.push('');
-          lines.push('  EVIDENCE TO GATHER:');
-          vc.evidence_needed.forEach(e => lines.push('    - ' + e));
-        }
-      }
-      if (r.statute_of_limitations) {
-        const sol = r.statute_of_limitations;
-        lines.push('');
-        lines.push('  STATUTE OF LIMITATIONS:');
-        if (sol.sol_analysis) lines.push('    ' + sol.sol_analysis.replace(/\n/g, '\n    '));
-        if (sol.two_year_deadline) lines.push('    2-Year Deadline: ' + sol.two_year_deadline);
-        if (sol.five_year_deadline) lines.push('    5-Year Deadline: ' + sol.five_year_deadline);
-      }
-      if (r.attorney_action_items && r.attorney_action_items.length) {
-        lines.push('');
-        lines.push('  ATTORNEY ACTION ITEMS:');
-        r.attorney_action_items.forEach(item => lines.push('    - ' + item));
-      }
-      if (r.risk_factors && r.risk_factors.length) {
-        lines.push('');
-        lines.push('  RISK FACTORS:');
-        r.risk_factors.forEach(rf => lines.push('    - ' + rf));
-      }
-    }
-  });
-  lines.push('');
-  lines.push('='.repeat(60));
-  lines.push('DRAFT ANALYSIS — FOR ATTORNEY REVIEW ONLY');
-  const text = lines.join('\n');
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = slugify(c.name || 'case') + '-' + new Date().toISOString().split('T')[0] + '.txt';
-  a.click();
-  URL.revokeObjectURL(url);
-  setStatus('Case exported as text');
-}
-
-function printCase() {
-  const c = currentCase();
-  if (!c) { alert('No case selected'); return; }
-  window.print();
-}
-
-// ==================== GLOBAL HELPERS ====================
-function saveBaseUrl(val) {
-  // Strip trailing slashes and any /webhook/... path the user may have pasted
-  state.n8nBaseUrl = val.trim().replace(/\/+$/, '').replace(/\/webhook\/.*$/, '');
-  saveState();
-}
-
-function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = String(str || '');
-  return div.innerHTML;
-}
-
-function escAttr(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 // ==================== INIT ====================
-function init() {
-  // Clear previous case data on page load — start fresh each session
-  localStorage.removeItem(STORAGE_KEY);
-  state.cases = {};
-  state.currentCaseId = null;
-  renderAll();
+async function init() {
+  document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Test Supabase connection
+  const { data, error } = await supabase.from('fcra_cases').select('id').limit(1);
+  const connEl = document.getElementById('connection-status');
+  if (error) {
+    connEl.innerHTML = '<span class="connection-dot disconnected"></span><span style="font-size:11px;color:var(--status-error);">DB disconnected</span>';
+    setStatus('Supabase connection failed: ' + error.message);
+  } else {
+    connEl.innerHTML = '<span class="connection-dot connected"></span><span style="font-size:11px;color:var(--status-complete);">Connected</span>';
+  }
+
+  // Load cases
+  state.cases = await fetchCases();
+  renderCaseList();
+
+  // Subscribe to realtime changes
+  subscribeToChanges();
+
   setStatus('Ready');
 }
 
@@ -1944,55 +1362,21 @@ document.addEventListener('DOMContentLoaded', init);
 
 // ==================== PUBLIC API ====================
 return {
-  createCase,
-  switchCase,
-  deleteCase,
-  switchStage,
-  submitStage,
-  exportCurrentCase,
-  printCase,
-  saveBaseUrl
+  showIntakeForm,
+  submitIntake,
+  selectCase,
+  switchTab,
+  approveStage,
+  requestChanges,
+  setStatus
 };
 
 })(); // end IIFE
 
-// Global DOM helpers (called from onclick inline handlers)
+// Global DOM helpers
 function toggleSection(header) {
   header.classList.toggle('open');
   header.nextElementSibling.classList.toggle('open');
-}
-
-function copyRawJson(stageIdx) {
-  const c = App && typeof App === 'object' ? null : null; // can't access private state
-  // Re-read from DOM
-  const rawEl = document.querySelector('.raw-json');
-  if (rawEl) {
-    navigator.clipboard.writeText(rawEl.textContent).then(() => {
-      document.getElementById('status-left').textContent = 'JSON copied to clipboard';
-    });
-  }
-}
-
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    document.getElementById('status-left').textContent = 'Copied to clipboard';
-  });
-}
-
-function addListItem(containerId, fieldName) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  // Find the stage definition to get field schema
-  const stageIdx = document.querySelector('.pipeline-stage.active, .pipeline-stage.in-progress');
-  // Build a generic item row
-  const row = document.createElement('div');
-  row.className = 'list-item';
-  row.innerHTML = `<input type="text" data-field="description" placeholder="Description" style="flex:2;">
-    <input type="text" data-field="reported" placeholder="Reported" style="flex:1;">
-    <input type="text" data-field="actual" placeholder="Actual" style="flex:1;">
-    <button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
-  container.appendChild(row);
 }
 </script>
 </body>
