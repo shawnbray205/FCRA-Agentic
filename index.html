@@ -1459,6 +1459,15 @@ function renderLetterTab(d) {
     }).join('')}</div>`, true);
   }
 
+  if (l.evidence_to_enclose?.length) {
+    html += renderSection('Evidence to Enclose', `<div style="font-size:13px;">
+      ${l.evidence_to_enclose.map(e => `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #fbbf24;padding:10px 14px;margin:6px 0;border-radius:6px;">
+        <span style="color:#fbbf24;">\u2709</span> <span style="color:#e2e8f0;">${escHtml(typeof e === 'string' ? e : e.name || e.title || JSON.stringify(e))}</span>
+        ${typeof e === 'object' && e.description ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;">${escHtml(e.description)}</div>` : ''}
+      </div>`).join('')}
+    </div>`, true);
+  }
+
   if (l.attorney_action_items?.length) {
     html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
       ${l.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
