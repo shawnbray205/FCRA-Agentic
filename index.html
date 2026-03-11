@@ -889,8 +889,8 @@ const STAGES = [
     shortName: 'Parser',
     endpoint: '/webhook/credit-report-parser',
     fields: [
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
-      { name: 'client_id', label: 'Client ID', type: 'text', autoFrom: { stage: 0, path: 'input.client_name', transform: 'slugify' } },
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
+      { name: 'client_id', label: 'Client ID', type: 'text' },
       { name: 'bureau', label: 'Bureau', type: 'select', options: [
         { value: 'all', label: 'All Bureaus' },
         { value: 'equifax', label: 'Equifax' },
@@ -921,11 +921,11 @@ const STAGES = [
     shortName: 'Chronology',
     endpoint: '/webhook/case-chronology',
     fields: [
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
-      { name: 'client_id', label: 'Client ID', type: 'text', autoFrom: { stage: 0, path: 'input.client_name', transform: 'slugify' } },
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
+      { name: 'client_id', label: 'Client ID', type: 'text' },
       { name: 'case_number', label: 'Case Number', type: 'text' },
       { name: 'case_events', label: 'Case Events', type: 'textarea', required: true, help: 'Timeline of events in narrative or structured format' },
-      { name: 'dispute_start_date', label: 'Dispute Start Date', type: 'date', autoFrom: { stage: 0, path: 'input.discovery_date' } },
+      { name: 'dispute_start_date', label: 'Dispute Start Date', type: 'date' },
       { name: 'bureaus_involved', label: 'Bureaus Involved', type: 'multicheck', options: [
         { value: 'equifax', label: 'Equifax' },
         { value: 'experian', label: 'Experian' },
@@ -951,7 +951,7 @@ const STAGES = [
         { value: 'demand', label: 'Demand Letter' },
         { value: 'settlement', label: 'Settlement' }
       ]},
-      { name: 'violation_type', label: 'Violation Type', type: 'text', autoFrom: { stage: 0, path: 'input.error_type' } },
+      { name: 'violation_type', label: 'Violation Type', type: 'text' },
       { name: 'case_stage', label: 'Case Stage', type: 'select', options: [
         { value: 'pre_dispute', label: 'Pre-Dispute' },
         { value: 'post_dispute', label: 'Post-Dispute' },
@@ -959,7 +959,7 @@ const STAGES = [
         { value: 'litigation', label: 'Litigation' },
         { value: 'settlement', label: 'Settlement' }
       ]},
-      { name: 'consumer_name', label: 'Consumer Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
+      { name: 'consumer_name', label: 'Consumer Name', type: 'text', required: true },
       { name: 'cra_name', label: 'CRA Name', type: 'text', help: 'Credit Reporting Agency' },
       { name: 'furnisher_name', label: 'Furnisher Name', type: 'text' },
       { name: 'account_number', label: 'Account Number', type: 'text' },
@@ -981,8 +981,8 @@ const STAGES = [
         { value: 'milestone_notification', label: 'Milestone Notification' },
         { value: 'next_steps', label: 'Next Steps' }
       ]},
-      { name: 'case_id', label: 'Case ID', type: 'text', autoFrom: { stage: -1, path: 'caseId' } },
-      { name: 'client_name', label: 'Client Name', type: 'text', required: true, autoFrom: { stage: 0, path: 'input.client_name' } },
+      { name: 'case_id', label: 'Case ID', type: 'text' },
+      { name: 'client_name', label: 'Client Name', type: 'text', required: true },
       { name: 'client_email', label: 'Client Email', type: 'email' },
       { name: 'case_stage', label: 'Case Stage', type: 'select', options: [
         { value: 'intake', label: 'Intake' },
@@ -1316,7 +1316,7 @@ function renderPipeline() {
     return;
   }
 
-  const icons = ['&#9878;', '&#128196;', '&#9993;', '&#128197;', '&#128172;'];
+  const icons = ['&#9878;', '&#128196;', '&#128197;', '&#9993;', '&#128172;'];
   let html = '';
   STAGES.forEach((stage, i) => {
     const stageData = c.stages[i];
@@ -1414,6 +1414,10 @@ function renderForm() {
       html += `</select>`;
     } else if (field.type === 'textarea') {
       html += `<textarea id="field-${field.name}" class="${field.mono ? 'mono' : ''}${autoCls}" rows="${field.mono ? 8 : 4}">${escHtml(typeof value === 'string' ? value : '')}</textarea>`;
+    } else if (field.type === 'date') {
+      const today = new Date().toISOString().split('T')[0];
+      const fiveYearsAgo = new Date(new Date().setFullYear(new Date().getFullYear() - 5)).toISOString().split('T')[0];
+      html += `<input type="date" id="field-${field.name}" value="${escAttr(typeof value === 'string' ? value : '')}" class="${autoCls}" min="${fiveYearsAgo}" max="${today}">`;
     } else {
       html += `<input type="${field.type || 'text'}" id="field-${field.name}" value="${escAttr(typeof value === 'string' ? value : '')}" class="${autoCls}">`;
     }
@@ -1424,7 +1428,7 @@ function renderForm() {
 
   html += `<div class="form-actions">
     <button class="btn btn-primary" onclick="App.submitStage()" ${state.isSubmitting ? 'disabled' : ''}>
-      ${state.isSubmitting ? 'Submitting...' : 'Submit to n8n'}
+      ${state.isSubmitting ? 'Submitting...' : 'Submit'}
     </button>
   </div>`;
 
