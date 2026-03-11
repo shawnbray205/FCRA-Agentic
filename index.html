@@ -865,10 +865,16 @@ const STAGES = [
       { name: 'error_type', label: 'Error Type', type: 'select', required: true,
         options: [
           { value: '', label: '-- Select --' },
-          { value: 'credit_report', label: 'Credit Report Error' },
+          { value: 'inaccurate_information', label: 'Inaccurate Information' },
           { value: 'mixed_file', label: 'Mixed File' },
           { value: 'identity_theft', label: 'Identity Theft' },
-          { value: 'background_check', label: 'Background Check' }
+          { value: 'reinvestigation_failure', label: 'Reinvestigation Failure' },
+          { value: 'furnisher_violation', label: 'Furnisher Violation' },
+          { value: 'unauthorized_inquiry', label: 'Unauthorized Inquiry' },
+          { value: 'obsolete_data', label: 'Obsolete Data' },
+          { value: 'background_check', label: 'Background Check' },
+          { value: 'medical_debt', label: 'Medical Debt' },
+          { value: 'credit_report', label: 'Credit Report Error' }
         ]
       },
       { name: 'discovery_date', label: 'Discovery Date', type: 'date' },
