@@ -243,55 +243,84 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  padding: 12px 24px;
+  gap: 8px;
+  padding: 10px 24px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   height: var(--pipeline-height);
 }
 
-.pipeline-stage {
+.pipeline-tab {
   display: flex;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  transition: all 0.2s;
   position: relative;
 }
 
-.pipeline-stage .stage-circle {
-  width: 36px;
-  height: 36px;
+.pipeline-tab:hover {
+  border-color: var(--accent-gold);
+  background: rgba(212,168,67,0.05);
+}
+
+.pipeline-tab .tab-icon {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 2px solid var(--status-pending);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--bg-primary);
-  transition: all 0.2s;
-  position: relative;
-  z-index: 1;
+  flex-shrink: 0;
 }
 
-.pipeline-stage.active .stage-circle {
+.pipeline-tab .tab-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pipeline-tab.active {
+  border-color: var(--accent-gold);
+  background: rgba(212,168,67,0.1);
+}
+
+.pipeline-tab.active .tab-icon {
   border-color: var(--accent-gold);
   color: var(--accent-gold);
-  box-shadow: 0 0 12px rgba(212,168,67,0.3);
+  box-shadow: 0 0 8px rgba(212,168,67,0.3);
 }
 
-.pipeline-stage.complete .stage-circle {
+.pipeline-tab.active .tab-label {
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.pipeline-tab.complete .tab-icon {
   border-color: var(--status-complete);
   background: var(--status-complete);
   color: #fff;
 }
 
-.pipeline-stage.error .stage-circle {
+.pipeline-tab.complete .tab-label {
+  color: var(--status-complete);
+}
+
+.pipeline-tab.error .tab-icon {
   border-color: var(--status-error);
   color: var(--status-error);
 }
 
-.pipeline-stage.in-progress .stage-circle {
+.pipeline-tab.in-progress .tab-icon {
   border-color: var(--status-active);
   color: var(--status-active);
   animation: pulse 2s infinite;
@@ -301,29 +330,6 @@ body {
   0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
   50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
 }
-
-.pipeline-stage .stage-label {
-  position: absolute;
-  top: 42px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  text-align: center;
-}
-
-.pipeline-stage.active .stage-label { color: var(--accent-gold); font-weight: 600; }
-.pipeline-stage.complete .stage-label { color: var(--status-complete); }
-
-.pipeline-connector {
-  width: 60px;
-  height: 2px;
-  background: var(--border-color);
-  margin: 0 4px;
-}
-
-.pipeline-connector.complete { background: var(--status-complete); }
 
 /* ========== MAIN WORKSPACE ========== */
 #workspace {
@@ -811,7 +817,7 @@ body {
     </div>
     <div id="case-list"></div>
     <div id="sidebar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="App.exportCurrentCase()">Export Case JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="App.exportCurrentCase()">Export to Text</button>
       <button class="btn btn-secondary btn-sm" onclick="App.printCase()">Print Case Report</button>
     </div>
   </aside>
@@ -819,10 +825,7 @@ body {
   <!-- HEADER -->
   <header id="config-bar">
     <h1>FCRA CASE MANAGER</h1>
-    <div class="url-group">
-      <label for="n8n-url">n8n URL:</label>
-      <input type="text" id="n8n-url" placeholder="https://sbray205.app.n8n.cloud" oninput="App.saveBaseUrl(this.value)">
-    </div>
+    <input type="hidden" id="n8n-url" value="https://sbray205.app.n8n.cloud">
     <span class="header-meta" id="header-date"></span>
   </header>
 
@@ -1313,21 +1316,17 @@ function renderPipeline() {
     return;
   }
 
+  const icons = ['&#9878;', '&#128196;', '&#9993;', '&#128197;', '&#128172;'];
   let html = '';
   STAGES.forEach((stage, i) => {
     const stageData = c.stages[i];
     let cls = stageData.status;
     if (i === state.currentStage && stageData.status !== 'complete' && stageData.status !== 'error') cls = 'active';
 
-    html += `<div class="pipeline-stage ${cls}" onclick="App.switchStage(${i})">
-      <div class="stage-circle">${stageData.status === 'complete' ? '&#10003;' : (i + 1)}</div>
-      <div class="stage-label">${stage.shortName}</div>
+    html += `<div class="pipeline-tab ${cls}" onclick="App.switchStage(${i})">
+      <div class="tab-icon">${stageData.status === 'complete' ? '&#10003;' : icons[i]}</div>
+      <div class="tab-label">${stage.shortName}</div>
     </div>`;
-
-    if (i < STAGES.length - 1) {
-      const connCls = stageData.status === 'complete' ? 'complete' : '';
-      html += `<div class="pipeline-connector ${connCls}"></div>`;
-    }
   });
 
   nav.innerHTML = html;
@@ -1362,7 +1361,6 @@ function renderForm() {
 
   let html = `<div class="panel-header">
     <h3>${stageDef.name}</h3>
-    <span style="font-size:11px;color:var(--text-muted);">Stage ${idx + 1} of 5</span>
   </div>`;
 
   for (const field of stageDef.fields) {
@@ -1428,7 +1426,6 @@ function renderForm() {
     <button class="btn btn-primary" onclick="App.submitStage()" ${state.isSubmitting ? 'disabled' : ''}>
       ${state.isSubmitting ? 'Submitting...' : 'Submit to n8n'}
     </button>
-    ${idx < 4 ? `<button class="btn btn-secondary" onclick="App.switchStage(${idx + 1})">Next Stage &rarr;</button>` : ''}
   </div>`;
 
   return html;
@@ -1827,15 +1824,83 @@ function renderAll() {
 function exportCurrentCase() {
   const c = currentCase();
   if (!c) { alert('No case selected'); return; }
-  const json = JSON.stringify(c, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+  const lines = [];
+  lines.push('FCRA CASE REPORT — DRAFT ANALYSIS');
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('Case: ' + (c.name || 'Untitled'));
+  lines.push('='.repeat(60));
+  const stageNames = ['Intake Triage', 'Credit Report Parser', 'Case Chronology', 'Dispute Letter', 'Client Comms'];
+  (c.stages || []).forEach((s, i) => {
+    if (!s) return;
+    lines.push('');
+    lines.push('--- ' + stageNames[i] + ' ---');
+    if (s.input && Object.keys(s.input).length) {
+      lines.push('');
+      lines.push('INPUT:');
+      Object.entries(s.input).forEach(([k, v]) => {
+        if (v !== '' && v != null) lines.push('  ' + k.replace(/_/g, ' ').toUpperCase() + ': ' + v);
+      });
+    }
+    if (s.result) {
+      lines.push('');
+      lines.push('RESULT:');
+      const r = s.result;
+      if (r.viability_score != null) lines.push('  Viability Score: ' + r.viability_score + '/100');
+      if (r.priority) lines.push('  Priority: ' + r.priority);
+      if (r.confidence) lines.push('  Confidence: ' + r.confidence + '%');
+      if (r.violation_classification) {
+        const vc = r.violation_classification;
+        if (vc.primary_violations && vc.primary_violations.length) {
+          lines.push('');
+          lines.push('  VIOLATIONS IDENTIFIED:');
+          vc.primary_violations.forEach(v => lines.push('    - ' + v));
+        }
+        if (vc.section_explanations && vc.section_explanations.length) {
+          lines.push('');
+          lines.push('  FCRA SECTIONS:');
+          vc.section_explanations.forEach(se => {
+            lines.push('    ' + se.section + ' — ' + se.title);
+            lines.push('      ' + se.explanation);
+          });
+        }
+        if (vc.evidence_needed && vc.evidence_needed.length) {
+          lines.push('');
+          lines.push('  EVIDENCE TO GATHER:');
+          vc.evidence_needed.forEach(e => lines.push('    - ' + e));
+        }
+      }
+      if (r.statute_of_limitations) {
+        const sol = r.statute_of_limitations;
+        lines.push('');
+        lines.push('  STATUTE OF LIMITATIONS:');
+        if (sol.sol_analysis) lines.push('    ' + sol.sol_analysis.replace(/\n/g, '\n    '));
+        if (sol.two_year_deadline) lines.push('    2-Year Deadline: ' + sol.two_year_deadline);
+        if (sol.five_year_deadline) lines.push('    5-Year Deadline: ' + sol.five_year_deadline);
+      }
+      if (r.attorney_action_items && r.attorney_action_items.length) {
+        lines.push('');
+        lines.push('  ATTORNEY ACTION ITEMS:');
+        r.attorney_action_items.forEach(item => lines.push('    - ' + item));
+      }
+      if (r.risk_factors && r.risk_factors.length) {
+        lines.push('');
+        lines.push('  RISK FACTORS:');
+        r.risk_factors.forEach(rf => lines.push('    - ' + rf));
+      }
+    }
+  });
+  lines.push('');
+  lines.push('='.repeat(60));
+  lines.push('DRAFT ANALYSIS — FOR ATTORNEY REVIEW ONLY');
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = slugify(c.name || 'case') + '-' + new Date().toISOString().split('T')[0] + '.json';
+  a.download = slugify(c.name || 'case') + '-' + new Date().toISOString().split('T')[0] + '.txt';
   a.click();
   URL.revokeObjectURL(url);
-  setStatus('Case exported');
+  setStatus('Case exported as text');
 }
 
 function printCase() {
@@ -1863,7 +1928,10 @@ function escAttr(str) {
 
 // ==================== INIT ====================
 function init() {
-  loadState();
+  // Clear previous case data on page load — start fresh each session
+  localStorage.removeItem(STORAGE_KEY);
+  state.cases = {};
+  state.currentCaseId = null;
   renderAll();
   setStatus('Ready');
 }
