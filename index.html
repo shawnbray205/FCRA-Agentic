@@ -1025,7 +1025,7 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      state.n8nBaseUrl = data.n8nBaseUrl || '';
+      state.n8nBaseUrl = (data.n8nBaseUrl || '').replace(/\/+$/, '').replace(/\/webhook\/.*$/, '');
       state.cases = data.cases || {};
       state.currentCaseId = data.lastActiveCaseId || null;
     }
@@ -1764,7 +1764,8 @@ function printCase() {
 
 // ==================== GLOBAL HELPERS ====================
 function saveBaseUrl(val) {
-  state.n8nBaseUrl = val.trim();
+  // Strip trailing slashes and any /webhook/... path the user may have pasted
+  state.n8nBaseUrl = val.trim().replace(/\/+$/, '').replace(/\/webhook\/.*$/, '');
   saveState();
 }
 
