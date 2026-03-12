@@ -1720,11 +1720,14 @@ function renderDocumentsTab(d) {
   const docs = d.documents || [];
   let html = '<div class="stage-content">';
 
-  // Upload button
-  html += `<div style="margin-bottom:16px;">
+  // Upload + Re-Analyze buttons
+  html += `<div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
     <button class="btn btn-primary" onclick="App.triggerDocUpload()" style="font-size:13px;padding:8px 16px;">
       &#128206; Upload Documents
     </button>
+    ${docs.length ? `<button class="btn btn-secondary" onclick="App.triggerReanalysis()" style="font-size:13px;padding:8px 16px;">
+      &#128269; Re-Analyze with Documents
+    </button>` : ''}
   </div>`;
 
   if (!docs.length) {
@@ -1795,6 +1798,40 @@ function triggerDocUpload() {
   input.click();
 }
 
+async function triggerReanalysis() {
+  if (state.isSubmitting) return;
+  if (!confirm('Re-analyze this case with all uploaded documents?\n\nThis will replace existing parser, chronology, letter, and communication outputs with new analysis based on the uploaded documents.')) return;
+
+  state.isSubmitting = true;
+  setStatus('Starting re-analysis pipeline...');
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min
+
+    const resp = await fetch(N8N_BASE_URL + '/webhook/fcra-reanalyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ case_id: state.currentCaseId }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    const result = await resp.json();
+    if (result.case_id) {
+      setStatus('Re-analysis complete (' + (result.stages_completed?.length || 0) + ' stages, ' + (result.doc_count || 0) + ' documents analyzed)');
+    } else {
+      setStatus('Re-analysis returned unexpected result');
+    }
+  } catch (err) {
+    setStatus(err.name === 'AbortError' ? 'Re-analysis timed out (pipeline may still be running in background)' : 'Re-analysis error: ' + err.message);
+  } finally {
+    state.isSubmitting = false;
+    state.caseData = await fetchCaseDetail(state.currentCaseId);
+    renderWorkspace();
+  }
+}
+
 // ==================== SECTION HELPER ====================
 function renderSection(title, content, startOpen = false) {
   return `<div class="result-section">
@@ -1846,7 +1883,8 @@ return {
   handleFileDrop,
   removePendingFile,
   triggerGapUpload,
-  triggerDocUpload
+  triggerDocUpload,
+  triggerReanalysis
 };
 
 })(); // end IIFE
