@@ -579,7 +579,13 @@ body {
   font-size: 13px;
 }
 .email-field { margin-bottom: 4px; }
+.email-greeting { padding: 16px 16px 0; font-size: 13px; font-style: italic; color: var(--text-secondary); }
 .email-body { padding: 16px; font-size: 13px; white-space: pre-wrap; line-height: 1.7; }
+.email-action-items { padding: 0 16px 8px; font-size: 13px; }
+.email-action-items strong { display: block; margin-bottom: 8px; color: var(--accent-primary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.email-action-items ul { margin: 0; padding-left: 20px; }
+.email-action-items li { margin-bottom: 6px; line-height: 1.5; color: var(--text-primary); }
+.email-closing { padding: 0 16px 16px; font-size: 13px; white-space: pre-wrap; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 12px; }
 
 /* Loading */
 .loading-overlay {
@@ -1527,15 +1533,30 @@ function renderCommsTab(d) {
       approvalHtml = `<div style="margin-top:8px;font-size:11px;color:#4ade80;">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</div>`;
     }
 
+    // Build client action items checklist if present
+    let actionItemsHtml = '';
+    const items = comm.client_action_items || [];
+    if (items.length) {
+      actionItemsHtml = `<div class="email-action-items">
+        <strong>Action Items — Documents Needed:</strong>
+        <ul>${items.map(item => `<li>${escHtml(typeof item === 'string' ? item : JSON.stringify(item))}</li>`).join('')}</ul>
+      </div>`;
+    }
+
+    // Format section header label — use friendly names instead of internal type codes
+    const typeLabels = { status_update: 'Status Update', pipeline_complete: 'Case Update', review_ready: 'Review Notice', document_request: 'Document Request' };
+    const headerLabel = typeLabels[comm.message_type] || comm.message_type || 'Communication';
+
     html += renderSection(
-      `${escHtml(comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+      `${escHtml(headerLabel)} — ${formatShortDate(comm.created_at)}`,
       `<div class="email-preview">
         <div class="email-header">
           ${comm.subject_line ? `<div class="email-field"><strong>Subject:</strong> ${escHtml(comm.subject_line)}</div>` : ''}
-          <div class="email-field"><strong>Type:</strong> ${escHtml(comm.message_type)}</div>
-          <div class="email-field"><strong>Trigger:</strong> ${escHtml(comm.trigger_source)}</div>
         </div>
+        ${comm.greeting ? `<div class="email-greeting">${escHtml(comm.greeting)}</div>` : ''}
         <div class="email-body">${escHtml(comm.message_body || '')}</div>
+        ${actionItemsHtml}
+        ${comm.closing ? `<div class="email-closing">${escHtml(comm.closing)}</div>` : ''}
       </div>${approvalHtml}`,
       i === 0
     );
