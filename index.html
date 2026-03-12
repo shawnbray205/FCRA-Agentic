@@ -421,6 +421,120 @@ body {
   margin-top: 4px;
 }
 
+/* Clickable score cards */
+.summary-card.clickable {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid transparent;
+}
+.summary-card.clickable:hover {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 8px rgba(212,175,55,0.15);
+}
+
+/* Score detail modal */
+.score-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.score-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+.score-modal h3 {
+  color: var(--accent-gold);
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+.score-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+.score-modal-close:hover { color: var(--text-primary); }
+.score-bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.score-bar-label {
+  width: 45%;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+.score-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 8px;
+}
+.score-bar-fill {
+  height: 100%;
+  background: var(--accent-gold);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.score-bar-value {
+  width: 36px;
+  text-align: right;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.score-check-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.score-check-icon {
+  margin-right: 8px;
+  font-size: 14px;
+}
+.score-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+}
+.score-stat-row:last-child { border-bottom: none; }
+.score-stat-label { color: var(--text-secondary); }
+.score-stat-value { color: var(--text-primary); font-weight: 600; }
+.score-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 16px 0 8px 0;
+}
+.score-no-data {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  padding: 12px 0;
+}
+
 /* Result sections */
 .result-section {
   margin-bottom: 16px;
@@ -1275,10 +1389,10 @@ function renderIntakeTab(d) {
   let html = '<div class="stage-content">';
 
   html += `<div class="summary-cards">
-    <div class="summary-card"><div class="card-value">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
     <div class="summary-card"><div class="card-value"><span class="badge badge-${t.priority_classification === 'high' ? 'critical' : t.priority_classification === 'medium' ? 'medium' : 'low'}">${escHtml(t.priority_classification || '--')}</span></div><div class="card-label">Priority</div></div>
-    <div class="summary-card"><div class="card-value">${t.confidence_score != null ? (Number(t.confidence_score) > 1 ? t.confidence_score : (Number(t.confidence_score) * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
-    <div class="summary-card"><div class="card-value">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('intake-confidence')"><div class="card-value">${t.confidence_score != null ? (Number(t.confidence_score) > 1 ? t.confidence_score : (Number(t.confidence_score) * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('strength')"><div class="card-value">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
   </div>`;
 
   // Violation
@@ -1329,9 +1443,9 @@ function renderParserTab(d) {
   let html = '<div class="stage-content">';
 
   html += `<div class="summary-cards">
-    <div class="summary-card"><div class="card-value">${p.tradeline_count ?? '--'}</div><div class="card-label">Tradelines</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('tradelines')"><div class="card-value">${p.tradeline_count ?? '--'}</div><div class="card-label">Tradelines</div></div>
     <div class="summary-card"><div class="card-value">${p.total_errors ?? '--'}</div><div class="card-label">Errors</div></div>
-    <div class="summary-card"><div class="card-value">${p.confidence_score != null ? (Number(p.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('parser-confidence')"><div class="card-value">${p.confidence_score != null ? (Number(p.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
   if (p.errors_found?.length) {
@@ -1405,7 +1519,7 @@ function renderChronologyTab(d) {
     <div class="summary-card"><div class="card-value">${Array.isArray(timeline) ? timeline.length : '--'}</div><div class="card-label">Events</div></div>
     <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
     <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.length : '--'}</div><div class="card-label">Gaps</div></div>
-    <div class="summary-card"><div class="card-value">${ch.confidence_score != null ? (Number(ch.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('chronology-confidence')"><div class="card-value">${ch.confidence_score != null ? (Number(ch.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
   if (timeline.length) {
@@ -1471,7 +1585,7 @@ function renderLetterTab(d) {
   html += `<div class="summary-cards">
     <div class="summary-card"><div class="card-value">${escHtml(l.letter_type || '--')}</div><div class="card-label">Letter Type</div></div>
     <div class="summary-card"><div class="card-value">${escHtml(l.recipient_type || '--')}</div><div class="card-label">Recipient</div></div>
-    <div class="summary-card"><div class="card-value">${l.confidence_score != null ? (Number(l.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('letter-confidence')"><div class="card-value">${l.confidence_score != null ? (Number(l.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
   if (l.letter_body) {
@@ -1869,6 +1983,156 @@ async function init() {
 
 document.addEventListener('DOMContentLoaded', init);
 
+// ==================== SCORE DETAIL MODALS ====================
+
+function closeScoreDetail() {
+  const el = document.querySelector('.score-modal-overlay');
+  if (el) el.remove();
+}
+
+function showScoreDetail(title, contentHtml) {
+  closeScoreDetail();
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeScoreDetail(); };
+  overlay.innerHTML = '<div class="score-modal">' +
+    '<button class="score-modal-close" onclick="App.closeScoreDetail()">&times;</button>' +
+    '<h3>' + title + '</h3>' +
+    contentHtml +
+    '</div>';
+  document.body.appendChild(overlay);
+}
+
+function _barRow(label, value, max) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return '<div class="score-bar-row">' +
+    '<span class="score-bar-label">' + label.replace(/_/g, ' ') + '</span>' +
+    '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<span class="score-bar-value">' + value + '/' + max + '</span></div>';
+}
+
+function _pctBar(label, value) {
+  const pct = Math.min(100, Math.round((Number(value) || 0) * 100));
+  return '<div class="score-bar-row">' +
+    '<span class="score-bar-label">' + label.replace(/_/g, ' ') + '</span>' +
+    '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<span class="score-bar-value">' + pct + '%</span></div>';
+}
+
+function _statRow(label, val) {
+  return '<div class="score-stat-row"><span class="score-stat-label">' + label + '</span><span class="score-stat-value">' + val + '</span></div>';
+}
+
+const ELEMENTS = ['notice', 'damages', 'inaccuracy', 'documentation', 'failure_to_investigate'];
+const NO_DATA = '<div class="score-no-data">No breakdown data available</div>';
+
+function showScore(key) {
+  const d = state.caseData;
+  if (!d) return;
+  const builders = {
+    'viability': function() {
+      const va = d.triage?.full_synthesis?.viability_assessment;
+      if (!va?.element_breakdown) return { title: 'Viability Score', html: NO_DATA };
+      const eb = va.element_breakdown;
+      let h = '<div class="score-section-title">Element Breakdown (each scored 0-20)</div>';
+      ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
+      const total = ELEMENTS.reduce(function(s, k) { return s + (Number(eb[k]) || 0); }, 0);
+      h += _statRow('Total', total + ' / 100');
+      return { title: 'Viability Score', html: h };
+    },
+    'intake-confidence': function() {
+      const va = d.triage?.full_synthesis?.viability_assessment;
+      if (!va) return { title: 'Confidence Score', html: NO_DATA };
+      let h = _statRow('Confidence Level', va.confidence_level || 'N/A');
+      if (va.element_breakdown) {
+        h += '<div class="score-section-title">Contributing Elements</div>';
+        const eb = va.element_breakdown;
+        ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
+      }
+      return { title: 'Confidence Score', html: h };
+    },
+    'strength': function() {
+      const va = d.triage?.full_synthesis?.viability_assessment;
+      if (!va) return { title: 'Case Strength', html: NO_DATA };
+      let h = '';
+      if (va.overall_score != null) {
+        h += _statRow('Overall Score', va.overall_score + ' / 100');
+        h += _barRow('Overall', Number(va.overall_score) || 0, 100);
+      }
+      if (va.element_breakdown) {
+        h += '<div class="score-section-title">Element Breakdown</div>';
+        const eb = va.element_breakdown;
+        ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
+      }
+      return { title: 'Case Strength', html: h || NO_DATA };
+    },
+    'tradelines': function() {
+      const ts = d.parsed?.full_synthesis?.tradeline_summary;
+      if (!ts) return { title: 'Tradeline Details', html: NO_DATA };
+      let h = '';
+      var stats = [
+        ['Total Balance', ts.total_balance != null ? '$' + Number(ts.total_balance).toLocaleString() : null],
+        ['Derogatory Accounts', ts.derogatory_accounts],
+        ['Total Late Payments', ts.total_late_payments],
+        ['Total Tradelines', ts.total_tradelines],
+        ['Open Accounts', ts.open_accounts]
+      ];
+      stats.forEach(function(pair) { if (pair[1] != null) h += _statRow(pair[0], pair[1]); });
+      return { title: 'Tradeline Details', html: h || NO_DATA };
+    },
+    'parser-confidence': function() {
+      const cs = d.parsed?.full_synthesis?.case_strength;
+      if (!cs) return { title: 'Parser Confidence', html: NO_DATA };
+      let h = _statRow('Rating', cs.rating || 'N/A');
+      if (cs.score != null) h += _barRow('Score', Number(cs.score) || 0, 100);
+      if (cs.factors) {
+        h += '<div class="score-section-title">Factors</div>';
+        var f = cs.factors;
+        [['High Errors', f.high_errors], ['Critical Errors', f.critical_errors],
+         ['Bureau Discrepancies', f.bureau_discrepancies], ['Mixed File Risk', f.mixed_file_risk]
+        ].forEach(function(pair) { h += _statRow(pair[0], pair[1] ?? 'N/A'); });
+      }
+      return { title: 'Parser Confidence', html: h };
+    },
+    'chronology-confidence': function() {
+      const csi = d.chronology?.full_synthesis?.case_strength_indicators;
+      if (!csi) return { title: 'Chronology Confidence', html: NO_DATA };
+      let h = '<div class="score-section-title">Strength Indicators (0-100%)</div>';
+      ['overall_strength', 'violation_severity', 'documentation_score', 'timeline_completeness'].forEach(function(k) {
+        if (csi[k] != null) h += _pctBar(k, csi[k]);
+      });
+      if (csi.strength_rating) h += _statRow('Strength Rating', csi.strength_rating);
+      return { title: 'Chronology Confidence', html: h };
+    },
+    'letter-confidence': function() {
+      const csi = d.letter?.full_synthesis?.case_strength_indicators;
+      const ca = d.letter?.full_synthesis?.compliance_assessment;
+      if (!csi && !ca) return { title: 'Letter Confidence', html: NO_DATA };
+      let h = '';
+      if (csi) {
+        h += '<div class="score-section-title">Quality Indicators (0-100%)</div>';
+        ['overall_strength', 'template_quality', 'citation_coverage', 'compliance_score'].forEach(function(k) {
+          if (csi[k] != null) h += _pctBar(k, csi[k]);
+        });
+      }
+      if (ca?.compliance_checks) {
+        h += '<div class="score-section-title">Compliance Checks</div>';
+        Object.entries(ca.compliance_checks).forEach(function(pair) {
+          var icon = pair[1]
+            ? '<span class="score-check-icon" style="color:#4ade80">&#10003;</span>'
+            : '<span class="score-check-icon" style="color:#f87171">&#10007;</span>';
+          h += '<div class="score-check-row">' + icon + '<span>' + pair[0].replace(/_/g, ' ') + '</span></div>';
+        });
+      }
+      return { title: 'Letter Confidence', html: h };
+    }
+  };
+  const builder = builders[key];
+  if (!builder) return;
+  const result = builder();
+  showScoreDetail(result.title, result.html);
+}
+
 // ==================== PUBLIC API ====================
 return {
   showIntakeForm,
@@ -1884,7 +2148,9 @@ return {
   removePendingFile,
   triggerGapUpload,
   triggerDocUpload,
-  triggerReanalysis
+  triggerReanalysis,
+  showScore,
+  closeScoreDetail
 };
 
 })(); // end IIFE
