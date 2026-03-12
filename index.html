@@ -620,6 +620,22 @@ body {
   background: rgba(59,130,246,0.25);
 }
 
+/* Communication badges and section headers */
+.comm-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+}
+.comm-badge-sent { background: rgba(74,222,128,0.15); color: #4ade80; }
+.comm-badge-approved { background: rgba(74,222,128,0.1); color: #86efac; }
+.comm-badge-failed { background: rgba(248,113,113,0.15); color: #f87171; }
+.comm-badge-auto { background: rgba(96,165,250,0.15); color: #60a5fa; }
+.comm-badge-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.comms-section-header {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--text-secondary); margin: 20px 0 8px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+.comms-section-header:first-child { margin-top: 0; }
+
 /* Result sections */
 .result-section {
   margin-bottom: 16px;
@@ -966,6 +982,7 @@ const App = (() => {
 const SUPABASE_URL = 'https://qygsgyiyxabztaghggvt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5Z3NneWl5eGFienRhZ2hnZ3Z0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NjAxNDQsImV4cCI6MjA4MTQzNjE0NH0.u_rYAJVp4C2KEuMPsR_I94wsdAbJT3yS-zMliicuYVo'; // Replace with actual anon key
 const N8N_BASE_URL = 'https://sbray205.app.n8n.cloud';
+const N8N_SEND_WEBHOOK = N8N_BASE_URL + '/webhook/fcra-send-comm';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1327,7 +1344,49 @@ async function approveStage(table, recordId) {
     details: { table, record_id: recordId }
   });
 
-  setStatus('Approved');
+  // Trigger email send for approved communications
+  if (table === 'fcra_communications') {
+    setStatus('Approved — sending email...');
+    try {
+      const sendResp = await fetch(N8N_SEND_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comm_id: recordId, case_id: state.currentCaseId })
+      });
+      if (sendResp.ok) {
+        setStatus('Approved & email sent');
+      } else {
+        setStatus('Approved but email send failed — check workflow');
+      }
+    } catch (e) {
+      setStatus('Approved but email send unavailable — will retry');
+    }
+  } else {
+    setStatus('Approved');
+  }
+
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  renderWorkspace();
+}
+
+async function retrySend(commId) {
+  setStatus('Retrying email send...');
+  try {
+    // Clear previous error
+    await supabase.from('fcra_communications').update({ send_error: null }).eq('id', commId);
+    const resp = await fetch(N8N_SEND_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comm_id: commId, case_id: state.currentCaseId })
+    });
+    if (resp.ok) {
+      setStatus('Email sent successfully');
+    } else {
+      setStatus('Retry failed — check workflow');
+    }
+  } catch (e) {
+    setStatus('Send unavailable — workflow may not be running');
+  }
   state.caseData = await fetchCaseDetail(state.currentCaseId);
   renderWorkspace();
 }
@@ -1796,31 +1855,53 @@ function renderCommsTab(d) {
   const comms = d.communications || [];
   if (!comms.length) return '<div class="stage-content"><div class="stage-empty">No communications generated yet.</div></div>';
 
-  let html = '<div class="stage-content">';
+  // Expanded type labels
+  const typeLabels = {
+    status_update: 'Status Update', pipeline_complete: 'Pipeline Complete',
+    review_ready: 'Review Notice', document_request: 'Document Request',
+    acknowledgment: 'Acknowledgment', dispute_filed: 'Dispute Filed',
+    investigation_timeline: 'Investigation Timeline', case_resolution: 'Case Resolution',
+    settlement_related: 'Settlement', demand_sent: 'Demand Sent', welcome: 'Welcome'
+  };
 
-  comms.forEach((comm, i) => {
-    // Approval actions for pending comms
+  // Split comms into categories
+  const needsReview = comms.filter(c => c.requires_approval !== false && (c.approval_status === 'pending' || c.approval_status === 'needs_changes'));
+  const sendFailed = comms.filter(c => c.send_error && c.approval_status !== 'sent');
+  const sent = comms.filter(c => c.approval_status === 'sent');
+  const approved = comms.filter(c => c.approval_status === 'approved' && !c.send_error);
+
+  function buildCommCard(comm, showApproval) {
     let approvalHtml = '';
-    if (comm.approval_status === 'pending') {
-      approvalHtml = `<div class="attorney-actions" style="margin-top:12px;">
-        <span class="label">Review Required</span>
-        <button class="btn btn-approve" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve</button>
-        <button class="btn btn-reject" onclick="App.requestChanges('fcra_communications', '${comm.id}')">Request Changes</button>
-      </div>`;
-    } else if (comm.approval_status === 'needs_changes') {
-      approvalHtml = `<div class="needs-changes-banner" style="margin-top:12px;">
-        <div class="banner-title">Changes Requested — Describe Revisions Below</div>
-        <textarea class="revision-textarea" id="comms-revision-notes" placeholder="Describe the changes needed...">${escHtml(comm.revision_notes || '')}</textarea>
-        <div class="revision-actions" style="justify-content:flex-start;">
-          <button class="btn-regenerate" onclick="App.regenerateStage('comms')">Regenerate Communication</button>
-          <button class="btn btn-secondary" style="font-size:12px;" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve As-Is</button>
-        </div>
-      </div>`;
-    } else if (comm.approval_status === 'approved') {
-      approvalHtml = `<div style="margin-top:8px;font-size:11px;color:#4ade80;">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</div>`;
+    if (showApproval) {
+      if (comm.approval_status === 'pending') {
+        approvalHtml = `<div class="attorney-actions" style="margin-top:12px;">
+          <span class="label">Review Required</span>
+          <button class="btn btn-approve" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve & Send</button>
+          <button class="btn btn-reject" onclick="App.requestChanges('fcra_communications', '${comm.id}')">Request Changes</button>
+        </div>`;
+      } else if (comm.approval_status === 'needs_changes') {
+        approvalHtml = `<div class="needs-changes-banner" style="margin-top:12px;">
+          <div class="banner-title">Changes Requested — Describe Revisions Below</div>
+          <textarea class="revision-textarea" id="comms-revision-notes-${comm.id}" placeholder="Describe the changes needed...">${escHtml(comm.revision_notes || '')}</textarea>
+          <div class="revision-actions" style="justify-content:flex-start;">
+            <button class="btn-regenerate" onclick="App.regenerateStage('comms')">Regenerate Communication</button>
+            <button class="btn btn-secondary" style="font-size:12px;" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve As-Is & Send</button>
+          </div>
+        </div>`;
+      }
     }
 
-    // Build client action items checklist if present
+    let statusBadge = '';
+    if (comm.approval_status === 'sent') {
+      statusBadge = `<span class="comm-badge comm-badge-sent">Sent ${comm.sent_at ? formatShortDate(comm.sent_at) : ''}</span>`;
+    } else if (comm.send_error) {
+      statusBadge = `<span class="comm-badge comm-badge-failed">Send Failed</span>`;
+    } else if (comm.approval_status === 'approved') {
+      statusBadge = `<span class="comm-badge comm-badge-approved">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</span>`;
+    } else if (comm.requires_approval === false && comm.approval_status !== 'sent') {
+      statusBadge = `<span class="comm-badge comm-badge-auto">Auto-Send</span>`;
+    }
+
     let actionItemsHtml = '';
     const items = comm.client_action_items || [];
     if (items.length) {
@@ -1830,24 +1911,97 @@ function renderCommsTab(d) {
       </div>`;
     }
 
-    // Format section header label — use friendly names instead of internal type codes
-    const typeLabels = { status_update: 'Status Update', pipeline_complete: 'Case Update', review_ready: 'Review Notice', document_request: 'Document Request' };
+    let retryHtml = '';
+    if (comm.send_error) {
+      retryHtml = `<div style="margin-top:8px;">
+        <div style="font-size:11px;color:#f87171;margin-bottom:6px;">Error: ${escHtml(comm.send_error)}</div>
+        <button class="btn btn-approve" style="font-size:11px;" onclick="App.retrySend('${comm.id}')">Retry Send</button>
+      </div>`;
+    }
+
     const headerLabel = typeLabels[comm.message_type] || comm.message_type || 'Communication';
 
-    html += renderSection(
-      `${escHtml(headerLabel)} — ${formatShortDate(comm.created_at)}`,
-      `<div class="email-preview">
-        <div class="email-header">
-          ${comm.subject_line ? `<div class="email-field"><strong>Subject:</strong> ${escHtml(comm.subject_line)}</div>` : ''}
+    return `<div class="email-preview">
+      <div class="email-header">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;color:var(--accent-gold);font-size:12px;">${escHtml(headerLabel)}</span>
+          ${statusBadge}
         </div>
-        ${comm.greeting ? `<div class="email-greeting">${escHtml(comm.greeting)}</div>` : ''}
-        <div class="email-body">${escHtml(comm.message_body || '')}</div>
-        ${actionItemsHtml}
-        ${comm.closing ? `<div class="email-closing">${escHtml(comm.closing)}</div>` : ''}
-      </div>${approvalHtml}`,
-      i === 0
-    );
-  });
+        ${comm.subject_line ? `<div class="email-field" style="margin-top:6px;"><strong>Subject:</strong> ${escHtml(comm.subject_line)}</div>` : ''}
+      </div>
+      ${comm.greeting ? `<div class="email-greeting">${escHtml(comm.greeting)}</div>` : ''}
+      <div class="email-body">${escHtml(comm.message_body || '')}</div>
+      ${actionItemsHtml}
+      ${comm.closing ? `<div class="email-closing">${escHtml(comm.closing)}</div>` : ''}
+    </div>${approvalHtml}${retryHtml}`;
+  }
+
+  let html = '<div class="stage-content">';
+
+  // Section 1: Needs Review
+  if (needsReview.length) {
+    html += `<div class="comms-section-header">Awaiting Attorney Review (${needsReview.length})</div>`;
+    needsReview.forEach((comm, i) => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, true),
+        i === 0
+      );
+    });
+  }
+
+  // Section 2: Send Failed
+  if (sendFailed.length) {
+    html += `<div class="comms-section-header" style="color:#f87171;">Send Failed (${sendFailed.length})</div>`;
+    sendFailed.forEach(comm => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, false),
+        true
+      );
+    });
+  }
+
+  // Section 3: Approved (awaiting send)
+  if (approved.length) {
+    html += `<div class="comms-section-header" style="color:#4ade80;">Approved — Awaiting Send (${approved.length})</div>`;
+    approved.forEach(comm => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, false),
+        false
+      );
+    });
+  }
+
+  // Section 4: Sent (collapsed)
+  if (sent.length) {
+    html += `<div class="comms-section-header" style="color:#4ade80;">Sent Communications (${sent.length})</div>`;
+    sent.forEach(comm => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, false),
+        false
+      );
+    });
+  }
+
+  // Fallback: if no comms matched any section (e.g. all pending without requires_approval field)
+  const handled = new Set([...needsReview, ...sendFailed, ...approved, ...sent].map(c => c.id));
+  const other = comms.filter(c => !handled.has(c.id));
+  if (other.length) {
+    if (!needsReview.length && !sendFailed.length && !approved.length && !sent.length) {
+      html += `<div class="comms-section-header">Communications (${other.length})</div>`;
+    }
+    other.forEach((comm, i) => {
+      const showApproval = comm.approval_status === 'pending' || comm.approval_status === 'needs_changes';
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, showApproval),
+        i === 0 && !needsReview.length
+      );
+    });
+  }
 
   html += '</div>';
   return html;
@@ -2382,6 +2536,7 @@ return {
   closeRevisionModal,
   submitRevisionRequest,
   regenerateStage,
+  retrySend,
   setStatus,
   onErrorTypeChange,
   handleFileSelect,
