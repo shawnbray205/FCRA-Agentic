@@ -1237,19 +1237,13 @@ function showIntakeForm() {
 }
 
 async function checkForDuplicateCase(payload) {
-  // Query open cases matching client_email + error_type
-  let query = supabase.from('fcra_cases')
+  // Match by client name + error type (case-insensitive name match)
+  const { data } = await supabase.from('fcra_cases')
     .select('id, client_name, client_email, error_type, case_stage, case_status, created_at')
     .eq('error_type', payload.error_type)
+    .ilike('client_name', payload.client_name)
     .not('case_status', 'in', '("duplicate_closed","closed")');
 
-  if (payload.client_email) {
-    query = query.eq('client_email', payload.client_email);
-  } else {
-    query = query.ilike('client_name', payload.client_name);
-  }
-
-  const { data } = await query;
   return data || [];
 }
 
