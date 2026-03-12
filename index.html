@@ -458,7 +458,7 @@ body {
   margin: 0 0 16px 0;
   font-size: 16px;
 }
-.score-modal-close {
+.score-modal-close, .revision-modal-close {
   position: absolute;
   top: 12px;
   right: 16px;
@@ -533,6 +533,82 @@ body {
   font-size: 12px;
   font-style: italic;
   padding: 12px 0;
+}
+
+/* Revision notes modal */
+.revision-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 520px;
+  width: 90%;
+  position: relative;
+}
+.revision-modal h3 {
+  color: var(--accent-gold);
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+.revision-modal p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0 0 16px 0;
+}
+.revision-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 12px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.revision-textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+.revision-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.needs-changes-banner {
+  padding: 12px 16px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.needs-changes-banner .banner-title {
+  color: #f87171;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.needs-changes-banner .banner-notes {
+  color: #fca5a5;
+  font-style: italic;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+.btn-regenerate {
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59,130,246,0.3);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn-regenerate:hover {
+  background: rgba(59,130,246,0.25);
 }
 
 /* Result sections */
@@ -1247,10 +1323,40 @@ async function approveStage(table, recordId) {
   renderWorkspace();
 }
 
-async function requestChanges(table, recordId) {
+function requestChanges(table, recordId) {
+  // Show modal for attorney to enter revision notes
+  closeRevisionModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.id = 'revision-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeRevisionModal(); };
+  overlay.innerHTML = '<div class="revision-modal">' +
+    '<button class="revision-modal-close" onclick="App.closeRevisionModal()">&times;</button>' +
+    '<h3>Request Changes</h3>' +
+    '<p>Describe what changes are needed. These notes will be used when regenerating the draft.</p>' +
+    '<textarea class="revision-textarea" id="revision-notes-input" placeholder="e.g., Add stronger \u00a71681e(b) language about furnisher duties, remove emotional distress paragraph, include specific dispute dates..."></textarea>' +
+    '<div class="revision-actions">' +
+    '<button class="btn btn-secondary" onclick="App.closeRevisionModal()">Cancel</button>' +
+    '<button class="btn btn-reject" onclick="App.submitRevisionRequest(\'' + table + '\', \'' + recordId + '\')">Submit Changes Request</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  setTimeout(function() { document.getElementById('revision-notes-input').focus(); }, 100);
+}
+
+function closeRevisionModal() {
+  const el = document.getElementById('revision-modal-overlay');
+  if (el) el.remove();
+}
+
+async function submitRevisionRequest(table, recordId) {
+  const notes = (document.getElementById('revision-notes-input').value || '').trim();
+  if (!notes) { setStatus('Please enter revision notes'); return; }
+
+  closeRevisionModal();
+
   const { error } = await supabase
     .from(table)
-    .update({ approval_status: 'needs_changes' })
+    .update({ approval_status: 'needs_changes', revision_notes: notes })
     .eq('id', recordId);
 
   if (error) { setStatus('Error: ' + error.message); return; }
@@ -1260,15 +1366,48 @@ async function requestChanges(table, recordId) {
     activity_type: 'changes_requested',
     stage: state.currentTab,
     actor: 'attorney',
-    summary: 'Requested changes to ' + state.currentTab + ' output',
-    details: { table, record_id: recordId }
+    summary: 'Requested changes: ' + notes.substring(0, 120),
+    details: { table, record_id: recordId, revision_notes: notes }
   });
 
-  // Update case status
   await supabase.from('fcra_cases').update({ case_status: 'needs_changes' }).eq('id', state.currentCaseId);
 
-  setStatus('Changes requested');
+  setStatus('Changes requested — revision notes saved');
   state.caseData = await fetchCaseDetail(state.currentCaseId);
+  renderWorkspace();
+}
+
+async function regenerateStage(stage) {
+  // stage: 'letter' or 'comms'
+  const caseId = state.currentCaseId;
+  if (!caseId) { setStatus('No case selected'); return; }
+
+  // Get revision notes from the record
+  const table = stage === 'letter' ? 'fcra_letters' : 'fcra_communications';
+  const { data } = await supabase.from(table).select('revision_notes').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1).single();
+  const notes = data?.revision_notes || '';
+
+  setStatus('Regenerating ' + stage + ' draft...');
+
+  // Call the appropriate sub-workflow via WF0 orchestrator or direct webhook
+  // For now, log activity and set status — actual WF integration requires n8n webhook
+  await supabase.from('fcra_case_activity').insert({
+    case_id: caseId,
+    activity_type: 'regeneration_requested',
+    stage: stage,
+    actor: 'attorney',
+    summary: 'Requested ' + stage + ' regeneration with revision notes',
+    details: { revision_notes: notes }
+  });
+
+  // Update case stage to trigger re-processing
+  await supabase.from('fcra_cases').update({
+    case_status: 'processing',
+    case_stage: stage
+  }).eq('id', caseId);
+
+  setStatus('Regeneration requested — workflow will re-run the ' + stage + ' stage with your revision notes. Refresh in a moment to see the updated draft.');
+  state.caseData = await fetchCaseDetail(caseId);
   renderWorkspace();
 }
 
@@ -1577,8 +1716,10 @@ function renderLetterTab(d) {
       Approved by ${escHtml(l.approved_by || 'Attorney')} on ${formatDate(l.approved_at)}
     </div>`;
   } else if (l.approval_status === 'needs_changes') {
-    html += `<div style="padding:10px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:#f87171;">
-      Changes requested — awaiting revision
+    html += `<div class="needs-changes-banner">
+      <div class="banner-title">Changes Requested</div>
+      ${l.revision_notes ? `<div class="banner-notes">${escHtml(l.revision_notes)}</div>` : ''}
+      <button class="btn-regenerate" onclick="App.regenerateStage('letter')">Regenerate Letter with Revisions</button>
     </div>`;
   }
 
@@ -1642,6 +1783,12 @@ function renderCommsTab(d) {
         <span class="label">Review Required</span>
         <button class="btn btn-approve" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve</button>
         <button class="btn btn-reject" onclick="App.requestChanges('fcra_communications', '${comm.id}')">Request Changes</button>
+      </div>`;
+    } else if (comm.approval_status === 'needs_changes') {
+      approvalHtml = `<div class="needs-changes-banner" style="margin-top:12px;">
+        <div class="banner-title">Changes Requested</div>
+        ${comm.revision_notes ? `<div class="banner-notes">${escHtml(comm.revision_notes)}</div>` : ''}
+        <button class="btn-regenerate" onclick="App.regenerateStage('comms')">Regenerate Communication</button>
       </div>`;
     } else if (comm.approval_status === 'approved') {
       approvalHtml = `<div style="margin-top:8px;font-size:11px;color:#4ade80;">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</div>`;
@@ -2141,6 +2288,9 @@ return {
   switchTab,
   approveStage,
   requestChanges,
+  closeRevisionModal,
+  submitRevisionRequest,
+  regenerateStage,
   setStatus,
   onErrorTypeChange,
   handleFileSelect,
