@@ -1391,10 +1391,21 @@ async function regenerateStage(stage) {
   const caseId = state.currentCaseId;
   if (!caseId) { setStatus('No case selected'); return; }
 
-  // Get revision notes from the record
+  // Read notes from the inline textarea (if visible), otherwise fall back to DB
   const table = stage === 'letter' ? 'fcra_letters' : 'fcra_communications';
-  const { data } = await supabase.from(table).select('revision_notes').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1).single();
-  const notes = data?.revision_notes || '';
+  const textareaId = stage === 'letter' ? 'letter-revision-notes' : 'comms-revision-notes';
+  const textarea = document.getElementById(textareaId);
+  let notes = textarea ? textarea.value.trim() : '';
+
+  if (!notes) {
+    const { data } = await supabase.from(table).select('revision_notes').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1).single();
+    notes = data?.revision_notes || '';
+  }
+
+  if (!notes) { setStatus('Please enter revision notes before regenerating'); return; }
+
+  // Save updated notes to DB
+  await supabase.from(table).update({ revision_notes: notes }).eq('case_id', caseId);
 
   setStatus('Regenerating ' + stage + ' draft...');
 
@@ -1726,9 +1737,12 @@ function renderLetterTab(d) {
     </div>`;
   } else if (l.approval_status === 'needs_changes') {
     html += `<div class="needs-changes-banner">
-      <div class="banner-title">Changes Requested</div>
-      ${l.revision_notes ? `<div class="banner-notes">${escHtml(l.revision_notes)}</div>` : ''}
-      <button class="btn-regenerate" onclick="App.regenerateStage('letter')">Regenerate Letter with Revisions</button>
+      <div class="banner-title">Changes Requested — Describe Revisions Below</div>
+      <textarea class="revision-textarea" id="letter-revision-notes" placeholder="Describe the changes needed for this letter...">${escHtml(l.revision_notes || '')}</textarea>
+      <div class="revision-actions" style="justify-content:flex-start;">
+        <button class="btn-regenerate" onclick="App.regenerateStage('letter')">Regenerate Letter with Revisions</button>
+        <button class="btn btn-secondary" style="font-size:12px;" onclick="App.approveStage('fcra_letters', '${l.id}')">Approve As-Is</button>
+      </div>
     </div>`;
   }
 
@@ -1795,9 +1809,12 @@ function renderCommsTab(d) {
       </div>`;
     } else if (comm.approval_status === 'needs_changes') {
       approvalHtml = `<div class="needs-changes-banner" style="margin-top:12px;">
-        <div class="banner-title">Changes Requested</div>
-        ${comm.revision_notes ? `<div class="banner-notes">${escHtml(comm.revision_notes)}</div>` : ''}
-        <button class="btn-regenerate" onclick="App.regenerateStage('comms')">Regenerate Communication</button>
+        <div class="banner-title">Changes Requested — Describe Revisions Below</div>
+        <textarea class="revision-textarea" id="comms-revision-notes" placeholder="Describe the changes needed...">${escHtml(comm.revision_notes || '')}</textarea>
+        <div class="revision-actions" style="justify-content:flex-start;">
+          <button class="btn-regenerate" onclick="App.regenerateStage('comms')">Regenerate Communication</button>
+          <button class="btn btn-secondary" style="font-size:12px;" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve As-Is</button>
+        </div>
       </div>`;
     } else if (comm.approval_status === 'approved') {
       approvalHtml = `<div style="margin-top:8px;font-size:11px;color:#4ade80;">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</div>`;
@@ -2188,33 +2205,51 @@ function showScore(key) {
   const builders = {
     'viability': function() {
       const va = d.triage?.full_synthesis?.viability_assessment;
-      if (!va?.element_breakdown) return { title: 'Viability Score', html: NO_DATA };
-      const eb = va.element_breakdown;
-      let h = '<div class="score-section-title">Element Breakdown (each scored 0-20)</div>';
-      ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
-      const total = ELEMENTS.reduce(function(s, k) { return s + (Number(eb[k]) || 0); }, 0);
-      h += _statRow('Total', total + ' / 100');
-      return { title: 'Viability Score', html: h };
+      if (!va) return { title: 'Viability Score', html: NO_DATA };
+      let h = '';
+      if (va.score != null || va.viability_score != null) {
+        const s = va.score ?? va.viability_score;
+        h += _statRow('Score', s + ' / 100');
+        h += _barRow('Overall', Number(s) || 0, 100);
+      }
+      if (va.rating) h += _statRow('Rating', va.rating);
+      if (va.element_breakdown) {
+        h += '<div class="score-section-title">Element Breakdown (each scored 0-20)</div>';
+        const eb = va.element_breakdown;
+        ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
+        const total = ELEMENTS.reduce(function(s, k) { return s + (Number(eb[k]) || 0); }, 0);
+        h += _statRow('Total', total + ' / 100');
+      }
+      return { title: 'Viability Score', html: h || NO_DATA };
     },
     'intake-confidence': function() {
       const va = d.triage?.full_synthesis?.viability_assessment;
       if (!va) return { title: 'Confidence Score', html: NO_DATA };
-      let h = _statRow('Confidence Level', va.confidence_level || 'N/A');
+      let h = '';
+      if (va.confidence_level) h += _statRow('Confidence Level', va.confidence_level);
+      if (va.score != null || va.viability_score != null) {
+        const s = va.score ?? va.viability_score;
+        h += _statRow('Score', s + ' / 100');
+        h += _barRow('Score', Number(s) || 0, 100);
+      }
+      if (va.rating) h += _statRow('Rating', va.rating);
       if (va.element_breakdown) {
         h += '<div class="score-section-title">Contributing Elements</div>';
         const eb = va.element_breakdown;
         ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
       }
-      return { title: 'Confidence Score', html: h };
+      return { title: 'Confidence Score', html: h || NO_DATA };
     },
     'strength': function() {
       const va = d.triage?.full_synthesis?.viability_assessment;
       if (!va) return { title: 'Case Strength', html: NO_DATA };
       let h = '';
-      if (va.overall_score != null) {
-        h += _statRow('Overall Score', va.overall_score + ' / 100');
-        h += _barRow('Overall', Number(va.overall_score) || 0, 100);
+      if (va.overall_score != null || va.score != null || va.viability_score != null) {
+        const s = va.overall_score ?? va.score ?? va.viability_score;
+        h += _statRow('Overall Score', s + ' / 100');
+        h += _barRow('Overall', Number(s) || 0, 100);
       }
+      if (va.rating || va.strength_rating) h += _statRow('Rating', va.rating || va.strength_rating);
       if (va.element_breakdown) {
         h += '<div class="score-section-title">Element Breakdown</div>';
         const eb = va.element_breakdown;
@@ -2223,47 +2258,85 @@ function showScore(key) {
       return { title: 'Case Strength', html: h || NO_DATA };
     },
     'tradelines': function() {
-      const ts = d.parsed?.full_synthesis?.tradeline_summary;
-      if (!ts) return { title: 'Tradeline Details', html: NO_DATA };
+      const fs = d.parsed?.full_synthesis;
+      if (!fs) return { title: 'Tradeline Details', html: NO_DATA };
+      const ts = fs.tradeline_summary;
       let h = '';
-      var stats = [
-        ['Total Balance', ts.total_balance != null ? '$' + Number(ts.total_balance).toLocaleString() : null],
-        ['Derogatory Accounts', ts.derogatory_accounts],
-        ['Total Late Payments', ts.total_late_payments],
-        ['Total Tradelines', ts.total_tradelines],
-        ['Open Accounts', ts.open_accounts]
-      ];
-      stats.forEach(function(pair) { if (pair[1] != null) h += _statRow(pair[0], pair[1]); });
+      if (ts) {
+        var stats = [
+          ['Total Balance', ts.total_balance != null ? '$' + Number(ts.total_balance).toLocaleString() : null],
+          ['Derogatory Accounts', ts.derogatory_accounts],
+          ['Total Late Payments', ts.total_late_payments],
+          ['Total Tradelines', ts.total_tradelines],
+          ['Open Accounts', ts.open_accounts]
+        ];
+        stats.forEach(function(pair) { if (pair[1] != null) h += _statRow(pair[0], pair[1]); });
+      }
+      if (!h && fs.error_classification) {
+        var ec = fs.error_classification;
+        if (ec.total != null) h += _statRow('Total Errors', ec.total);
+        if (ec.primary_type) h += _statRow('Primary Type', ec.primary_type.replace(/_/g, ' '));
+      }
+      if (!h && fs.case_summary) h += _statRow('Summary', fs.case_summary);
       return { title: 'Tradeline Details', html: h || NO_DATA };
     },
     'parser-confidence': function() {
-      const cs = d.parsed?.full_synthesis?.case_strength;
-      if (!cs) return { title: 'Parser Confidence', html: NO_DATA };
-      let h = _statRow('Rating', cs.rating || 'N/A');
-      if (cs.score != null) h += _barRow('Score', Number(cs.score) || 0, 100);
-      if (cs.factors) {
-        h += '<div class="score-section-title">Factors</div>';
-        var f = cs.factors;
-        [['High Errors', f.high_errors], ['Critical Errors', f.critical_errors],
-         ['Bureau Discrepancies', f.bureau_discrepancies], ['Mixed File Risk', f.mixed_file_risk]
-        ].forEach(function(pair) { h += _statRow(pair[0], pair[1] ?? 'N/A'); });
+      const fs = d.parsed?.full_synthesis;
+      if (!fs) return { title: 'Parser Confidence', html: NO_DATA };
+      const cs = fs.case_strength;
+      let h = '';
+      if (cs) {
+        h += _statRow('Rating', cs.rating || 'N/A');
+        if (cs.score != null) h += _barRow('Score', Number(cs.score) || 0, 100);
+        if (cs.factors) {
+          h += '<div class="score-section-title">Factors</div>';
+          var f = cs.factors;
+          [['High Errors', f.high_errors], ['Critical Errors', f.critical_errors],
+           ['Bureau Discrepancies', f.bureau_discrepancies], ['Mixed File Risk', f.mixed_file_risk]
+          ].forEach(function(pair) { h += _statRow(pair[0], pair[1] ?? 'N/A'); });
+        }
+      } else {
+        if (fs.confidence_score != null) {
+          var pct = Number(fs.confidence_score) <= 1 ? Math.round(Number(fs.confidence_score) * 100) : Number(fs.confidence_score);
+          h += _statRow('Score', pct + '%');
+          h += _barRow('Confidence', pct, 100);
+        }
+        if (fs.error_classification) {
+          h += '<div class="score-section-title">Error Classification</div>';
+          var ec = fs.error_classification;
+          if (ec.total != null) h += _statRow('Total Errors', ec.total);
+          if (ec.primary_type) h += _statRow('Primary Type', ec.primary_type.replace(/_/g, ' '));
+        }
       }
-      return { title: 'Parser Confidence', html: h };
+      return { title: 'Parser Confidence', html: h || NO_DATA };
     },
     'chronology-confidence': function() {
-      const csi = d.chronology?.full_synthesis?.case_strength_indicators;
-      if (!csi) return { title: 'Chronology Confidence', html: NO_DATA };
-      let h = '<div class="score-section-title">Strength Indicators (0-100%)</div>';
-      ['overall_strength', 'violation_severity', 'documentation_score', 'timeline_completeness'].forEach(function(k) {
-        if (csi[k] != null) h += _pctBar(k, csi[k]);
-      });
-      if (csi.strength_rating) h += _statRow('Strength Rating', csi.strength_rating);
-      return { title: 'Chronology Confidence', html: h };
+      const fs = d.chronology?.full_synthesis;
+      if (!fs) return { title: 'Chronology Confidence', html: NO_DATA };
+      const csi = fs.case_strength_indicators;
+      let h = '';
+      if (csi) {
+        h += '<div class="score-section-title">Strength Indicators (0-100%)</div>';
+        ['overall_strength', 'violation_severity', 'documentation_score', 'timeline_completeness'].forEach(function(k) {
+          if (csi[k] != null) h += _pctBar(k, csi[k]);
+        });
+        if (csi.strength_rating) h += _statRow('Strength Rating', csi.strength_rating);
+      } else {
+        if (fs.confidence_score != null) {
+          var pct = Number(fs.confidence_score) <= 1 ? Math.round(Number(fs.confidence_score) * 100) : Number(fs.confidence_score);
+          h += _statRow('Score', pct + '%');
+          h += _barRow('Confidence', pct, 100);
+        }
+        if (fs.chronology) h += _statRow('Timeline', fs.chronology);
+        if (fs.case_summary) h += _statRow('Summary', fs.case_summary);
+      }
+      return { title: 'Chronology Confidence', html: h || NO_DATA };
     },
     'letter-confidence': function() {
-      const csi = d.letter?.full_synthesis?.case_strength_indicators;
-      const ca = d.letter?.full_synthesis?.compliance_assessment;
-      if (!csi && !ca) return { title: 'Letter Confidence', html: NO_DATA };
+      const fs = d.letter?.full_synthesis;
+      if (!fs) return { title: 'Letter Confidence', html: NO_DATA };
+      const csi = fs.case_strength_indicators;
+      const ca = fs.compliance_assessment;
       let h = '';
       if (csi) {
         h += '<div class="score-section-title">Quality Indicators (0-100%)</div>';
@@ -2280,7 +2353,16 @@ function showScore(key) {
           h += '<div class="score-check-row">' + icon + '<span>' + pair[0].replace(/_/g, ' ') + '</span></div>';
         });
       }
-      return { title: 'Letter Confidence', html: h };
+      if (!csi && !ca) {
+        if (fs.confidence_score != null) {
+          var pct = Number(fs.confidence_score) <= 1 ? Math.round(Number(fs.confidence_score) * 100) : Number(fs.confidence_score);
+          h += _statRow('Score', pct + '%');
+          h += _barRow('Confidence', pct, 100);
+        }
+        if (fs.draft_notice) h += _statRow('Status', fs.draft_notice);
+        if (fs.case_summary) h += _statRow('Summary', fs.case_summary);
+      }
+      return { title: 'Letter Confidence', html: h || NO_DATA };
     }
   };
   const builder = builders[key];
