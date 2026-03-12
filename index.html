@@ -411,6 +411,15 @@ body {
   font-size: 24px;
   font-weight: 700;
   color: var(--accent-gold);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.card-value.card-value-sm {
+  font-size: 15px;
+}
+.summary-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .card-label {
@@ -1531,7 +1540,7 @@ function renderIntakeTab(d) {
     <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
     <div class="summary-card"><div class="card-value"><span class="badge badge-${t.priority_classification === 'high' ? 'critical' : t.priority_classification === 'medium' ? 'medium' : 'low'}">${escHtml(t.priority_classification || '--')}</span></div><div class="card-label">Priority</div></div>
     <div class="summary-card clickable" onclick="App.showScore('intake-confidence')"><div class="card-value">${t.confidence_score != null ? (Number(t.confidence_score) > 1 ? t.confidence_score : (Number(t.confidence_score) * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
-    <div class="summary-card clickable" onclick="App.showScore('strength')"><div class="card-value">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('strength')"><div class="card-value${(t.strength_rating || '').length > 10 ? ' card-value-sm' : ''}">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
   </div>`;
 
   // Violation
