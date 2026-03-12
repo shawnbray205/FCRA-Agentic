@@ -1358,12 +1358,16 @@ async function executeIntakeSubmission(payload) {
     if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).substring(0, 200));
 
     const result = await res.json();
+    console.log('INTAKE DEBUG: webhook response =', JSON.stringify(result));
+    console.log('INTAKE DEBUG: pendingFiles.length =', pendingFiles.length);
     setStatus('Pipeline completed: ' + (result.stages_completed?.length || 0) + ' stages');
 
     // Upload any pending documents
     if (result.case_id && pendingFiles.length > 0) {
+      console.log('INTAKE DEBUG: uploading', pendingFiles.length, 'files to case', result.case_id);
       setStatus('Uploading ' + pendingFiles.length + ' document(s)...');
       const uploaded = await uploadCaseDocuments(result.case_id, pendingFiles, 'intake');
+      console.log('INTAKE DEBUG: upload results =', JSON.stringify(uploaded));
       if (uploaded.length) {
         await supabase.from('fcra_case_activity').insert({
           case_id: result.case_id,
