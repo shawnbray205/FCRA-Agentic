@@ -564,6 +564,14 @@ body {
   font-size: 13px;
   margin: 0 0 16px 0;
 }
+.dupe-match-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--status-warning);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
 .revision-textarea {
   width: 100%;
   min-height: 120px;
@@ -1228,6 +1236,76 @@ function showIntakeForm() {
   `;
 }
 
+async function checkForDuplicateCase(payload) {
+  // Query open cases matching client_email + error_type
+  let query = supabase.from('fcra_cases')
+    .select('id, client_name, client_email, error_type, case_stage, case_status, created_at')
+    .eq('error_type', payload.error_type)
+    .not('case_status', 'in', '("duplicate_closed","closed")');
+
+  if (payload.client_email) {
+    query = query.eq('client_email', payload.client_email);
+  } else {
+    query = query.ilike('client_name', payload.client_name);
+  }
+
+  const { data } = await query;
+  return data || [];
+}
+
+function showDuplicateReviewModal(matches, payload) {
+  closeDuplicateModal();
+  const matchList = matches.map(m =>
+    `<div class="dupe-match-card">
+      <strong>${escHtml(m.client_name)}</strong> &mdash; ${escHtml(m.error_type)}<br>
+      <span style="font-size:11px;color:var(--text-muted);">
+        Stage: ${STAGE_LABELS[m.case_stage] || m.case_stage} &middot; Status: ${m.case_status} &middot; Created: ${formatShortDate(m.created_at)}
+      </span><br>
+      <span style="font-size:11px;color:var(--text-muted);">ID: ${m.id}</span>
+    </div>`
+  ).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.id = 'duplicate-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeDuplicateModal(); };
+  overlay.innerHTML = `<div class="revision-modal" style="max-width:560px;">
+    <button class="revision-modal-close" onclick="App.closeDuplicateModal()">&times;</button>
+    <h3 style="color:var(--status-warning);">&#9888; Possible Duplicate Case</h3>
+    <p style="font-size:13px;color:var(--text-secondary);">
+      A case with the same client and error type already exists. Review the match below and decide whether to proceed.
+    </p>
+    <div style="margin:12px 0;">${matchList}</div>
+    <div class="revision-actions" style="justify-content:flex-end;gap:10px;">
+      <button class="btn btn-secondary" onclick="App.closeDuplicateModal()">Cancel</button>
+      <button class="btn btn-approve" onclick="App.confirmUniqueCase()">Confirm Unique &mdash; Create Case</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  // Stash payload for confirmUniqueCase
+  state.pendingIntakePayload = payload;
+}
+
+function closeDuplicateModal() {
+  const el = document.getElementById('duplicate-modal-overlay');
+  if (el) el.remove();
+}
+
+async function confirmUniqueCase() {
+  closeDuplicateModal();
+  const payload = state.pendingIntakePayload;
+  if (!payload) { setStatus('Error: no pending intake'); return; }
+  state.pendingIntakePayload = null;
+
+  // Proceed with normal intake submission
+  state.isSubmitting = true;
+  const btn = document.getElementById('btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  setStatus('Submitting to FCRA pipeline...');
+  await executeIntakeSubmission(payload);
+}
+
 async function submitIntake() {
   if (state.isSubmitting) return;
 
@@ -1254,11 +1332,22 @@ async function submitIntake() {
     priority: document.getElementById('field-priority')?.value || 'medium'
   };
 
+  // Duplicate check — match on client_email + error_type on open cases
+  setStatus('Checking for duplicate cases...');
+  const dupeMatches = await checkForDuplicateCase(payload);
+  if (dupeMatches.length > 0) {
+    showDuplicateReviewModal(dupeMatches, payload);
+    return;
+  }
+
   state.isSubmitting = true;
   const btn = document.getElementById('btn-submit');
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
   setStatus('Submitting to FCRA pipeline...');
+  await executeIntakeSubmission(payload);
+}
 
+async function executeIntakeSubmission(payload) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 300000); // 5 min for full pipeline
@@ -1371,7 +1460,40 @@ async function approveStage(table, recordId) {
   }
 
   state.caseData = await fetchCaseDetail(state.currentCaseId);
+
+  // Auto-promote case to approved if all reviewable outputs are approved/sent
+  await checkCaseApproval();
+
   renderWorkspace();
+}
+
+async function checkCaseApproval() {
+  const d = state.caseData;
+  if (!d || !d.case_record || d.case_record.case_status !== 'awaiting_review') return;
+
+  const letters = d.letter ? [d.letter] : [];
+  const comms = d.communications || [];
+
+  // Letters must be approved
+  const pendingLetters = letters.filter(l => l.approval_status && l.approval_status !== 'approved');
+  // Comms that require approval must be approved or sent
+  const pendingComms = comms.filter(c => c.requires_approval !== false && c.approval_status !== 'approved' && c.approval_status !== 'sent');
+
+  if (pendingLetters.length === 0 && pendingComms.length === 0) {
+    await supabase.from('fcra_cases').update({ case_status: 'approved' }).eq('id', state.currentCaseId);
+    await supabase.from('fcra_case_activity').insert({
+      case_id: state.currentCaseId,
+      activity_type: 'case_approved',
+      stage: 'review',
+      actor: 'system',
+      summary: 'All outputs approved — case auto-promoted to approved'
+    });
+    setStatus('All outputs approved — case promoted to approved');
+    // Re-fetch to pick up the case status change
+    state.caseData = await fetchCaseDetail(state.currentCaseId);
+    state.cases = await fetchCases();
+    renderCaseList();
+  }
 }
 
 async function retrySend(commId) {
@@ -2539,6 +2661,8 @@ return {
   approveStage,
   requestChanges,
   closeRevisionModal,
+  closeDuplicateModal,
+  confirmUniqueCase,
   submitRevisionRequest,
   regenerateStage,
   retrySend,
