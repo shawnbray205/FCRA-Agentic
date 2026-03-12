@@ -1096,16 +1096,19 @@ async function fetchCaseDetail(caseId) {
 function subscribeToChanges() {
   if (state.realtimeChannel) state.realtimeChannel.unsubscribe();
 
+  const realtimeHandler = async () => {
+    state.cases = await fetchCases();
+    renderCaseList();
+    if (state.currentCaseId) {
+      state.caseData = await fetchCaseDetail(state.currentCaseId);
+      renderWorkspace();
+    }
+  };
   state.realtimeChannel = supabase
-    .channel('fcra-cases-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_cases' }, async () => {
-      state.cases = await fetchCases();
-      renderCaseList();
-      if (state.currentCaseId) {
-        state.caseData = await fetchCaseDetail(state.currentCaseId);
-        renderWorkspace();
-      }
-    })
+    .channel('fcra-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_cases' }, realtimeHandler)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_communications' }, realtimeHandler)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_case_activity' }, realtimeHandler)
     .subscribe();
 }
 
@@ -1361,6 +1364,8 @@ async function approveStage(table, recordId) {
     } catch (e) {
       setStatus('Approved but email send unavailable — will retry');
     }
+    // Brief delay to ensure DB write propagates before re-fetch
+    await new Promise(r => setTimeout(r, 500));
   } else {
     setStatus('Approved');
   }
