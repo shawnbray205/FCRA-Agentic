@@ -2514,22 +2514,23 @@ function showScore(key) {
       return { title: 'Viability Score', html: h || NO_DATA };
     },
     'intake-confidence': function() {
-      const va = d.triage?.full_synthesis?.viability_assessment;
-      if (!va) return { title: 'Confidence Score', html: NO_DATA };
+      const fs = d.triage?.full_synthesis;
+      const t = d.triage;
+      if (!fs && !t) return { title: 'Triage Confidence', html: NO_DATA };
       let h = '';
-      if (va.confidence_level) h += _statRow('Confidence Level', va.confidence_level);
-      if (va.score != null || va.viability_score != null) {
-        const s = va.score ?? va.viability_score;
-        h += _statRow('Score', s + ' / 100');
-        h += _barRow('Score', Number(s) || 0, 100);
+      // Show the actual confidence score (how confident the AI triage is)
+      const cs = t?.confidence_score ?? fs?.confidence_score;
+      if (cs != null) {
+        var pct = Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs);
+        h += _statRow('Confidence Score', pct + '%');
+        h += _barRow('Confidence', pct, 100);
       }
-      if (va.rating) h += _statRow('Rating', va.rating);
-      if (va.element_breakdown) {
-        h += '<div class="score-section-title">Contributing Elements</div>';
-        const eb = va.element_breakdown;
-        ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
-      }
-      return { title: 'Confidence Score', html: h || NO_DATA };
+      // Show viability score for context
+      const vs = t?.viability_score ?? fs?.viability_assessment?.viability_score;
+      if (vs != null) h += _statRow('Viability Score', vs + ' / 100');
+      const sr = t?.strength_rating ?? fs?.viability_assessment?.strength_rating;
+      if (sr) h += _statRow('Case Strength', sr);
+      return { title: 'Triage Confidence', html: h || NO_DATA };
     },
     'strength': function() {
       const va = d.triage?.full_synthesis?.viability_assessment;
@@ -2573,30 +2574,33 @@ function showScore(key) {
     },
     'parser-confidence': function() {
       const fs = d.parsed?.full_synthesis;
-      if (!fs) return { title: 'Parser Confidence', html: NO_DATA };
-      const cs = fs.case_strength;
+      const p = d.parsed;
+      if (!fs && !p) return { title: 'Parser Confidence', html: NO_DATA };
       let h = '';
-      if (cs) {
-        h += _statRow('Rating', cs.rating || 'N/A');
-        if (cs.score != null) h += _barRow('Score', Number(cs.score) || 0, 100);
-        if (cs.factors) {
-          h += '<div class="score-section-title">Factors</div>';
-          var f = cs.factors;
-          [['High Errors', f.high_errors], ['Critical Errors', f.critical_errors],
-           ['Bureau Discrepancies', f.bureau_discrepancies], ['Mixed File Risk', f.mixed_file_risk]
-          ].forEach(function(pair) { h += _statRow(pair[0], pair[1] ?? 'N/A'); });
-        }
-      } else {
-        if (fs.confidence_score != null) {
-          var pct = Number(fs.confidence_score) <= 1 ? Math.round(Number(fs.confidence_score) * 100) : Number(fs.confidence_score);
-          h += _statRow('Score', pct + '%');
-          h += _barRow('Confidence', pct, 100);
-        }
-        if (fs.error_classification) {
-          h += '<div class="score-section-title">Error Classification</div>';
-          var ec = fs.error_classification;
-          if (ec.total != null) h += _statRow('Total Errors', ec.total);
-          if (ec.primary_type) h += _statRow('Primary Type', ec.primary_type.replace(/_/g, ' '));
+      // Show actual confidence score first (how confident the parser is)
+      const cs = p?.confidence_score ?? fs?.confidence_score;
+      if (cs != null) {
+        var pct = Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs);
+        h += _statRow('Confidence Score', pct + '%');
+        h += _barRow('Confidence', pct, 100);
+      }
+      // Show error classification as context
+      if (fs?.error_classification) {
+        h += '<div class="score-section-title">Error Classification</div>';
+        var ec = fs.error_classification;
+        if (ec.total != null) h += _statRow('Total Errors', ec.total);
+        if (ec.primary_type) h += _statRow('Primary Type', ec.primary_type.replace(/_/g, ' '));
+      }
+      // Show case strength as separate section (not as the main confidence metric)
+      if (fs?.case_strength) {
+        h += '<div class="score-section-title">Case Strength (from parser)</div>';
+        var str = fs.case_strength;
+        if (str.rating) h += _statRow('Rating', str.rating);
+        if (str.score != null) h += _barRow('Strength Score', Number(str.score) || 0, 100);
+        if (str.factors) {
+          [['High Errors', str.factors.high_errors], ['Critical Errors', str.factors.critical_errors],
+           ['Bureau Discrepancies', str.factors.bureau_discrepancies], ['Mixed File Risk', str.factors.mixed_file_risk]
+          ].forEach(function(pair) { if (pair[1] != null) h += _statRow(pair[0], pair[1]); });
         }
       }
       return { title: 'Parser Confidence', html: h || NO_DATA };
