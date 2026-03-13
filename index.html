@@ -1846,10 +1846,111 @@ function renderParserTab(d) {
     </div>`, true);
   }
 
+  // === Case Strength ===
+  if (p.case_strength && typeof p.case_strength === 'object') {
+    const cs = p.case_strength;
+    const score = Number(cs.score) || 0;
+    const scoreColor = score >= 70 ? '#4ade80' : score >= 40 ? '#fbbf24' : '#f87171';
+    const factors = cs.factors || {};
+    html += renderSection('Case Strength Assessment', `<div style="font-size:13px;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+        <div style="width:64px;height:64px;border-radius:50%;border:3px solid ${scoreColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:22px;font-weight:700;color:${scoreColor};">${score}</span>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:600;color:${scoreColor};text-transform:uppercase;">${escHtml(cs.rating || 'Unknown')}</div>
+          <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Case viability score out of 100</div>
+        </div>
+      </div>
+      ${Object.keys(factors).length ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+        ${Object.entries(factors).map(([k, v]) => `<div style="background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:6px;">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">${escHtml(k.replace(/_/g, ' '))}</div>
+          <div style="color:#e2e8f0;font-weight:600;">${escHtml(String(v))}</div>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`, true);
+  }
+
+  // === FCRA Violations ===
+  if (p.fcra_violations && typeof p.fcra_violations === 'object' && (p.fcra_violations.total_violations || 0) > 0) {
+    const fv = p.fcra_violations;
+    const sections = fv.by_section || {};
+    const explanations = fv.section_explanations || [];
+    html += renderSection('FCRA Violations (' + (fv.total_violations || 0) + ')', `<div style="font-size:13px;">
+      ${Object.entries(sections).map(([sec, count]) => {
+        const expl = explanations.find(e => e.section === sec);
+        return `<div style="background:rgba(239,68,68,0.06);border-left:3px solid #f87171;padding:12px 14px;margin:8px 0;border-radius:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-weight:600;color:#f87171;">${escHtml(sec)}</span>
+            <span class="badge badge-high" style="font-size:10px;">${count} violation${count > 1 ? 's' : ''}</span>
+          </div>
+          ${expl ? `<div style="font-weight:500;color:#e2e8f0;margin-bottom:4px;">${escHtml(expl.title || '')}</div>
+          <div style="color:#cbd5e1;font-size:12px;">${escHtml(expl.text || '')}</div>` : ''}
+        </div>`;
+      }).join('')}
+      ${fv.by_severity ? `<div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
+        ${Object.entries(fv.by_severity).filter(([,v]) => v > 0).map(([sev, cnt]) => {
+          const sc = sev === 'critical' ? '#ef4444' : sev === 'high' ? '#f87171' : sev === 'medium' ? '#fbbf24' : '#94a3b8';
+          return `<span class="badge" style="background:${sc}22;color:${sc};font-size:11px;padding:3px 10px;">${cnt} ${escHtml(sev)}</span>`;
+        }).join('')}
+      </div>` : ''}
+    </div>`, true);
+  }
+
+  // === Damages Assessment ===
+  if (p.damages_assessment && typeof p.damages_assessment === 'object' && p.damages_assessment.damages_type) {
+    const da = p.damages_assessment;
+    html += renderSection('Damages Assessment', `<div style="font-size:13px;">
+      <div style="background:rgba(59,130,246,0.06);border-left:3px solid #60a5fa;padding:14px;border-radius:6px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div><div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">Type</div><div style="color:#e2e8f0;font-weight:600;">${escHtml((da.damages_type || '').replace(/_/g, ' '))}</div></div>
+          <div><div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">Category</div><div style="color:#e2e8f0;font-weight:600;">${escHtml((da.case_category || '').replace(/_/g, ' '))}</div></div>
+          <div><div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">Estimated Range</div><div style="color:#4ade80;font-weight:600;">${escHtml(da.damages_range || 'N/A')}</div></div>
+        </div>
+      </div>
+    </div>`, true);
+  }
+
+  // === Evidence Needed ===
+  if (p.evidence_needed?.length) {
+    const docs = d.documents || [];
+    const docKeywords = docs.map(doc => (doc.file_name || '').toLowerCase() + ' ' + (doc.document_type || '').toLowerCase());
+    html += renderSection('Evidence Needed', `<div style="font-size:13px;">
+      ${p.evidence_needed.map(ev => {
+        const evLower = ev.toLowerCase();
+        const hasDoc = docKeywords.some(dk => {
+          if (evLower.includes('credit report') && dk.includes('report')) return true;
+          if (evLower.includes('dispute') && dk.includes('dispute')) return true;
+          if (evLower.includes('denial') && dk.includes('denial')) return true;
+          return false;
+        });
+        const icon = hasDoc ? '<span style="color:#4ade80;">&#10003;</span>' : '<span style="color:#fbbf24;">&#9675;</span>';
+        const textColor = hasDoc ? 'color:#4ade80;' : 'color:#e2e8f0;';
+        return `<div style="padding:6px 0;display:flex;gap:8px;align-items:flex-start;">
+          ${icon} <span style="${textColor}">${escHtml(ev)}${hasDoc ? ' <span style="font-size:11px;color:#94a3b8;">(on file)</span>' : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`, true);
+  }
+
+  // === Attorney Action Items (filtered) ===
   if (p.attorney_action_items?.length) {
-    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
-      ${p.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
-    </ol>`, true);
+    const docs = d.documents || [];
+    const docNames = docs.map(doc => (doc.file_name || '').toLowerCase());
+    const filtered = p.attorney_action_items.filter(a => {
+      const al = a.toLowerCase();
+      if (al.includes('obtain') || al.includes('gather') || al.includes('collect') || al.includes('request copies')) {
+        if (al.includes('credit report') && docNames.some(n => n.includes('report'))) return false;
+        if (al.includes('dispute letter') && docNames.some(n => n.includes('dispute'))) return false;
+        if (al.includes('denial') && docNames.some(n => n.includes('denial'))) return false;
+      }
+      return true;
+    });
+    if (filtered.length) {
+      html += renderSection('Attorney Action Items (' + filtered.length + ')', `<ol style="padding-left:20px;font-size:13px;">
+        ${filtered.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+      </ol>`, true);
+    }
   }
 
   if (p.full_synthesis) {
@@ -1873,25 +1974,37 @@ function renderChronologyTab(d) {
   html += `<div class="summary-cards">
     <div class="summary-card"><div class="card-value">${Array.isArray(timeline) ? timeline.length : '--'}</div><div class="card-label">Events</div></div>
     <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
-    <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.length : '--'}</div><div class="card-label">Gaps</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.filter(g => !(g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:'))).length : '--'}</div><div class="card-label">Missing Docs</div></div>
     <div class="summary-card clickable" onclick="App.showScore('chronology-confidence')"><div class="card-value">${ch.confidence_score != null ? (Number(ch.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
   </div>`;
 
   if (timeline.length) {
-    html += renderSection('Timeline', `<ul class="result-list">
-      ${timeline.map(e => `<li><span class="item-label">${escHtml(e.date || e.timestamp || '')}</span><div class="item-value">${escHtml(e.event || e.description || JSON.stringify(e))}</div></li>`).join('')}
+    html += renderSection('Timeline (' + timeline.length + ' events)', `<ul class="result-list">
+      ${timeline.map(e => {
+        const eventText = (e.event || e.description || JSON.stringify(e)).replace(/\\n/g, '\n');
+        const lines = eventText.split('\n').filter(l => l.trim());
+        return `<li><span class="item-label">${escHtml(e.date || e.timestamp || '')}</span><div class="item-value">${lines.map(l => escHtml(l)).join('<br>')}</div></li>`;
+      }).join('')}
     </ul>`, true);
   }
 
   if (gaps.length) {
-    html += renderSection('Documentation Gaps', `<div style="font-size:13px;">${gaps.map(g => {
-      if (typeof g === 'string') return `<div style="color:var(--accent-amber);margin-bottom:4px;">• ${escHtml(g)}</div>`;
-      const pColor = g.priority === 'high' ? '#f87171' : g.priority === 'medium' ? '#fbbf24' : '#4ade80';
-      return `<div style="background:rgba(245,158,11,0.08);border-left:3px solid ${pColor};padding:10px 14px;margin:6px 0;border-radius:6px;">
+    const providedCount = gaps.filter(g => g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:')).length;
+    const missingCount = gaps.length - providedCount;
+    html += renderSection(`Documentation Gaps (${missingCount} Missing / ${providedCount} Provided)`, `<div style="font-size:13px;">${gaps.map(g => {
+      if (typeof g === 'string') return `<div style="color:var(--accent-amber);margin-bottom:4px;">&#8226; ${escHtml(g)}</div>`;
+      const isProvided = g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:');
+      const borderColor = isProvided ? '#4ade80' : (g.priority === 'high' ? '#f87171' : g.priority === 'medium' ? '#fbbf24' : '#94a3b8');
+      const bgColor = isProvided ? 'rgba(74,222,128,0.06)' : 'rgba(245,158,11,0.08)';
+      const titleColor = isProvided ? '#4ade80' : '#fbbf24';
+      const gapLabel = (g.gap || '').replace(/^(Provided|Missing):\s*/i, '').replace(/_/g, ' ');
+      const statusIcon = isProvided ? '<span style="color:#4ade80;font-size:14px;">&#10003;</span>' : '<span style="color:#fbbf24;font-size:14px;">&#9675;</span>';
+      return `<div style="background:${bgColor};border-left:3px solid ${borderColor};padding:10px 14px;margin:6px 0;border-radius:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-weight:600;color:#fbbf24;">${escHtml(g.gap || '')}</span>
-          <span class="badge" style="background:${pColor}22;color:${pColor};font-size:10px;padding:2px 8px;">${escHtml((g.priority || '').toUpperCase())}</span>
+          <span style="font-weight:600;color:${titleColor};display:flex;align-items:center;gap:6px;">${statusIcon} ${escHtml(gapLabel)}</span>
+          <span class="badge" style="background:${borderColor}22;color:${borderColor};font-size:10px;padding:2px 8px;">${isProvided ? 'PROVIDED' : escHtml((g.priority || '').toUpperCase())}</span>
         </div>
+        ${isProvided && g.provided_by ? `<div style="color:#4ade80;font-size:12px;margin-bottom:4px;">&#128206; ${escHtml(g.provided_by)}</div>` : ''}
         ${g.fcra_section ? `<div style="color:#60a5fa;font-size:12px;margin-bottom:4px;">FCRA ${escHtml(g.fcra_section)}</div>` : ''}
         <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(g.recommendation || '')}</div>
         ${g.legal_significance ? `<div style="color:#94a3b8;font-size:12px;font-style:italic;">${escHtml(g.legal_significance)}</div>` : ''}
