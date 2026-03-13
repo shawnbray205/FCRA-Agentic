@@ -1344,7 +1344,7 @@ async function submitIntake() {
 async function executeIntakeSubmission(payload) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min for full pipeline
+    const timeout = setTimeout(() => controller.abort(), 60000); // 60s — webhook responds immediately now
 
     const res = await fetch(N8N_BASE_URL + '/webhook/fcra-pipeline', {
       method: 'POST',
@@ -1358,9 +1358,11 @@ async function executeIntakeSubmission(payload) {
     if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).substring(0, 200));
 
     const result = await res.json();
-    console.log('INTAKE DEBUG: webhook response =', JSON.stringify(result));
-    console.log('INTAKE DEBUG: pendingFiles.length =', pendingFiles.length);
-    setStatus('Pipeline completed: ' + (result.stages_completed?.length || 0) + ' stages');
+    console.log('INTAKE RESPONSE:', JSON.stringify(result));
+    // Pipeline now responds immediately with case_id; stages run in background
+    setStatus(result.status === 'accepted'
+      ? 'Case created — pipeline processing in background...'
+      : 'Pipeline completed: ' + (result.stages_completed?.length || 0) + ' stages');
 
     // Upload any pending documents
     if (result.case_id && pendingFiles.length > 0) {
@@ -1377,7 +1379,7 @@ async function executeIntakeSubmission(payload) {
           summary: 'Uploaded ' + uploaded.length + ' document(s) at intake',
           details: { files: uploaded.map(u => u.file_name) }
         });
-        setStatus('Pipeline done. ' + uploaded.length + ' document(s) uploaded.');
+        setStatus('Case created. ' + uploaded.length + ' document(s) uploaded. Pipeline running in background.');
       }
       pendingFiles = [];
     }
