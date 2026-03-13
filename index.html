@@ -1343,56 +1343,66 @@ async function submitIntake() {
 
 async function executeIntakeSubmission(payload) {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60s — webhook responds immediately now
+    // Phase 1: Create case directly in Supabase (instant)
+    setStatus('Creating case...');
+    const { data: caseData, error: caseErr } = await supabase
+      .from('fcra_cases')
+      .insert({
+        client_name: payload.client_name || 'Unknown',
+        client_email: payload.client_email || null,
+        error_type: payload.error_type || 'credit_report',
+        complaint_summary: payload.complaint_summary || '',
+        discovery_date: payload.discovery_date || null,
+        dispute_history: payload.dispute_history || '',
+        case_stage: 'intake',
+        case_status: 'new',
+        priority: payload.priority || 'medium',
+        assigned_attorney: payload.assigned_attorney || 'Adam Singer',
+        metadata: payload.metadata || {}
+      })
+      .select()
+      .single();
 
-    const res = await fetch(N8N_BASE_URL + '/webhook/fcra-pipeline', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
+    if (caseErr) throw new Error('Failed to create case: ' + caseErr.message);
+    const caseId = caseData.id;
+    console.log('Case created:', caseId);
+    setStatus('Case created. Uploading documents...');
 
-    clearTimeout(timeout);
-
-    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).substring(0, 200));
-
-    const result = await res.json();
-    console.log('INTAKE RESPONSE:', JSON.stringify(result));
-    // Pipeline now responds immediately with case_id; stages run in background
-    setStatus(result.status === 'accepted'
-      ? 'Case created — pipeline processing in background...'
-      : 'Pipeline completed: ' + (result.stages_completed?.length || 0) + ' stages');
-
-    // Upload any pending documents
-    if (result.case_id && pendingFiles.length > 0) {
-      console.log('INTAKE DEBUG: uploading', pendingFiles.length, 'files to case', result.case_id);
-      setStatus('Uploading ' + pendingFiles.length + ' document(s)...');
-      const uploaded = await uploadCaseDocuments(result.case_id, pendingFiles, 'intake');
-      console.log('INTAKE DEBUG: upload results =', JSON.stringify(uploaded));
+    // Phase 2: Upload documents (now that we have case_id)
+    if (pendingFiles.length > 0) {
+      console.log('Uploading', pendingFiles.length, 'files to case', caseId);
+      const uploaded = await uploadCaseDocuments(caseId, pendingFiles, 'intake');
+      console.log('Upload results:', JSON.stringify(uploaded));
       if (uploaded.length) {
         await supabase.from('fcra_case_activity').insert({
-          case_id: result.case_id,
+          case_id: caseId,
           activity_type: 'document_upload',
           stage: 'intake',
           actor: 'dashboard',
           summary: 'Uploaded ' + uploaded.length + ' document(s) at intake',
           details: { files: uploaded.map(u => u.file_name) }
         });
-        setStatus('Case created. ' + uploaded.length + ' document(s) uploaded. Pipeline running in background.');
+        setStatus(uploaded.length + ' document(s) uploaded. Starting pipeline...');
       }
       pendingFiles = [];
     }
 
+    // Phase 3: Trigger pipeline in background (fire-and-forget)
+    // onReceived mode = instant 200, pipeline runs asynchronously
+    fetch(N8N_BASE_URL + '/webhook/fcra-pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, case_id: caseId })
+    }).catch(err => console.warn('Pipeline trigger (non-blocking):', err.message));
+
+    setStatus('Case created & documents uploaded. Pipeline processing in background.');
+
     // Refresh case list and select the new case
     state.cases = await fetchCases();
-    if (result.case_id) {
-      await selectCase(result.case_id);
-    }
+    await selectCase(caseId);
 
   } catch (err) {
-    setStatus('Error: ' + (err.name === 'AbortError' ? 'Request timed out (5min)' : err.message));
-    // Still refresh cases — the case may have been created even if pipeline failed partway
+    setStatus('Error: ' + err.message);
     state.cases = await fetchCases();
     renderCaseList();
   }
