@@ -1513,21 +1513,15 @@ function getCaseReadiness(d) {
   const comms = d.communications || [];
   const gaps = d.gaps || [];
 
-  // Letters
+  // Letters — approved is sufficient (dispute letters are mailed to CRAs, not emailed)
   const totalLetters = letters.length;
   const approvedLetters = letters.filter(l => l.approval_status === 'approved' || l.approval_status === 'sent').length;
-  const sentLetters = letters.filter(l => l.approval_status === 'sent').length;
 
   if (totalLetters > 0) {
     items.push({
       label: `Dispute letter${totalLetters > 1 ? 's' : ''} approved`,
       status: approvedLetters === totalLetters ? 'done' : 'pending',
       detail: `${approvedLetters}/${totalLetters}`
-    });
-    items.push({
-      label: `Dispute letter${totalLetters > 1 ? 's' : ''} sent`,
-      status: sentLetters === totalLetters ? 'done' : approvedLetters > 0 ? 'pending' : 'missing',
-      detail: `${sentLetters}/${totalLetters}`
     });
   } else {
     items.push({ label: 'Dispute letter generated', status: 'missing', detail: 'None' });
