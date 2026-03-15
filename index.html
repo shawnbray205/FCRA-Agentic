@@ -563,6 +563,44 @@ body {
   cursor: pointer;
 }
 .score-modal-close:hover { color: var(--text-primary); }
+
+/* Help modal */
+.help-btn {
+  background: none; border: 1px solid var(--border-color); color: var(--text-secondary);
+  width: 28px; height: 28px; border-radius: 50%; font-size: 14px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.help-btn:hover { color: var(--accent-gold); border-color: var(--accent-gold); }
+.help-modal { max-width: 600px; }
+.help-modal h4 { color: var(--accent-gold); margin: 16px 0 8px 0; font-size: 14px; }
+.help-modal p, .help-modal li { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+.help-modal ul { padding-left: 18px; margin-bottom: 8px; }
+.help-modal .help-threshold { display: flex; gap: 8px; align-items: center; padding: 6px 0; font-size: 13px; }
+.help-modal .help-threshold .ht-range { font-weight: 600; min-width: 60px; }
+.help-modal .help-threshold .ht-label { font-weight: 600; min-width: 100px; }
+
+/* AI Confidence button */
+.btn-ai-confidence {
+  background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);
+  font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;
+}
+.btn-ai-confidence:hover { color: var(--accent-gold); border-color: var(--accent-gold); }
+
+/* Viability guidance */
+.viability-guidance {
+  margin-top: 12px; padding: 12px 16px; border-radius: var(--radius);
+  border-left: 3px solid; font-size: 13px;
+}
+.viability-guidance.vg-insufficient { border-color: #ef4444; background: rgba(239,68,68,0.08); }
+.viability-guidance.vg-weak { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+.viability-guidance.vg-moderate { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+.viability-guidance.vg-strong { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+.viability-guidance.vg-very-strong { border-color: #10b981; background: rgba(16,185,129,0.08); }
+.viability-guidance .vg-label { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.viability-guidance .vg-actions { margin-top: 8px; padding-left: 16px; }
+.viability-guidance .vg-actions li { margin-bottom: 4px; color: var(--text-secondary); }
 .score-bar-row {
   display: flex;
   align-items: center;
@@ -1046,6 +1084,7 @@ body {
   <header id="config-bar">
     <h1>FCRA CASE MANAGER</h1>
     <span id="connection-status"></span>
+    <button class="help-btn" onclick="App.showHelp()" title="Scoring Guide &amp; Help">?</button>
     <span class="header-meta" id="header-date"></span>
   </header>
 
@@ -1617,6 +1656,17 @@ function getCaseReadiness(d) {
     detail: criticalGaps.length === 0 ? 'None remaining' : `${criticalGaps.length} outstanding`
   });
 
+  // Viability threshold
+  const viabilityScore = Number(d.triage?.viability_score) || 0;
+  if (viabilityScore > 0) {
+    const vg = getViabilityGuidance(viabilityScore);
+    items.push({
+      label: `Case viability: ${vg.label} (${viabilityScore}/100)`,
+      status: viabilityScore >= 76 ? 'done' : 'pending',
+      detail: viabilityScore >= 76 ? 'Strong+' : 'Override required'
+    });
+  }
+
   const allDone = items.every(i => i.status === 'done');
   return { items, allDone };
 }
@@ -1630,7 +1680,9 @@ async function checkReadyToClose() {
   if (c.case_status !== 'approved') return;
 
   const readiness = getCaseReadiness(d);
-  if (readiness.allDone) {
+  // For auto-promotion, only check non-viability items (viability requires manual override)
+  const coreReady = readiness.items.filter(i => !i.label.startsWith('Case viability:')).every(i => i.status === 'done');
+  if (coreReady) {
     await supabase.from('fcra_cases').update({
       case_status: 'ready_to_close'
     }).eq('id', state.currentCaseId);
@@ -1655,10 +1707,36 @@ async function closeCase() {
   if (!d || !d.case_record) return;
 
   const readiness = getCaseReadiness(d);
-  if (!readiness.allDone) {
-    const pending = readiness.items.filter(i => i.status !== 'done').map(i => i.label).join(', ');
+  // Separate viability item from other readiness items
+  const nonViabilityItems = readiness.items.filter(i => !i.label.startsWith('Case viability:'));
+  const viabilityItem = readiness.items.find(i => i.label.startsWith('Case viability:'));
+  const coreReady = nonViabilityItems.every(i => i.status === 'done');
+
+  if (!coreReady) {
+    const pending = nonViabilityItems.filter(i => i.status !== 'done').map(i => i.label).join(', ');
     setStatus('Cannot close — pending items: ' + pending);
     return;
+  }
+
+  // Viability threshold check — require Strong (76+) or attorney override
+  const viabilityScore = Number(d.triage?.viability_score) || 0;
+  if (viabilityScore > 0 && viabilityScore < 76) {
+    const guidance = getViabilityGuidance(viabilityScore);
+    const override = confirm(
+      `Case viability is ${viabilityScore}/100 (${guidance.label}).\n\n` +
+      `Cases below "Strong" (76+) typically require additional evidence or documentation before closing.\n\n` +
+      `Are you sure you want to close this case? This will be logged as an attorney override.`
+    );
+    if (!override) return;
+    // Log the override
+    await supabase.from('fcra_case_activity').insert({
+      case_id: state.currentCaseId,
+      activity_type: 'viability_override',
+      stage: 'review',
+      actor: 'attorney',
+      summary: `Attorney override: closing case with ${viabilityScore}/100 viability (${guidance.label})`,
+      details: { viability_score: viabilityScore, threshold: 76, guidance_level: guidance.label }
+    });
   }
 
   if (!confirm('Close this case? This marks it as fully resolved.')) return;
@@ -1960,7 +2038,9 @@ function renderReadinessPanel(d) {
     </div>`
   ).join('');
 
-  const canClose = readiness.allDone && c.case_status !== 'closed';
+  // Viability uses override, so close button shows when core items are done
+  const nonViabilityReady = readiness.items.filter(i => !i.label.startsWith('Case viability:')).every(i => i.status === 'done');
+  const canClose = nonViabilityReady && c.case_status !== 'closed';
   const isClosed = c.case_status === 'closed';
   const doneCount = readiness.items.filter(i => i.status === 'done').length;
   const totalCount = readiness.items.length;
@@ -2074,12 +2154,16 @@ function renderIntakeTab(d) {
 
   let html = '<div class="stage-content">';
 
+  const intakeGuidance = getViabilityGuidance(t.viability_score);
   html += `<div class="summary-cards">
-    <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value" style="color:${intakeGuidance.color}">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
     <div class="summary-card"><div class="card-value"><span class="badge badge-${t.priority_classification === 'high' ? 'critical' : t.priority_classification === 'medium' ? 'medium' : 'low'}">${escHtml(t.priority_classification || '--')}</span></div><div class="card-label">Priority</div></div>
-    <div class="summary-card clickable" onclick="App.showScore('intake-confidence')"><div class="card-value">${t.confidence_score != null ? (Number(t.confidence_score) > 1 ? t.confidence_score : (Number(t.confidence_score) * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
     <div class="summary-card clickable" onclick="App.showScore('strength')"><div class="card-value${(t.strength_rating || '').length > 10 ? ' card-value-sm' : ''}">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
+    <div class="summary-card" style="display:flex;align-items:center;justify-content:center;"><button class="btn-ai-confidence" onclick="App.showAIConfidence()">&#129302; Show AI Confidence</button></div>
   </div>`;
+  if (t.viability_score != null) {
+    html += renderViabilityGuidance(t.viability_score);
+  }
 
   // Violation
   if (t.violation_type) {
@@ -2131,7 +2215,7 @@ function renderParserTab(d) {
   html += `<div class="summary-cards">
     <div class="summary-card clickable" onclick="App.showScore('tradelines')"><div class="card-value">${p.tradeline_count ?? '--'}</div><div class="card-label">Tradelines</div></div>
     <div class="summary-card"><div class="card-value">${p.total_errors ?? '--'}</div><div class="card-label">Errors</div></div>
-    <div class="summary-card clickable" onclick="App.showScore('parser-confidence')"><div class="card-value">${p.confidence_score != null ? (Number(p.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card" style="display:flex;align-items:center;justify-content:center;"><button class="btn-ai-confidence" onclick="App.showAIConfidence()">&#129302; Show AI Confidence</button></div>
   </div>`;
 
   if (p.errors_found?.length) {
@@ -2181,7 +2265,8 @@ function renderParserTab(d) {
   if (p.case_strength && typeof p.case_strength === 'object') {
     const cs = p.case_strength;
     const score = Number(cs.score) || 0;
-    const scoreColor = score >= 70 ? '#4ade80' : score >= 40 ? '#fbbf24' : '#f87171';
+    const csGuidance = getViabilityGuidance(score);
+    const scoreColor = csGuidance.color;
     const factors = cs.factors || {};
     html += renderSection('Case Strength Assessment', `<div style="font-size:13px;">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
@@ -2189,11 +2274,12 @@ function renderParserTab(d) {
           <span style="font-size:22px;font-weight:700;color:${scoreColor};">${score}</span>
         </div>
         <div>
-          <div style="font-size:16px;font-weight:600;color:${scoreColor};text-transform:uppercase;">${escHtml(cs.rating || 'Unknown')}</div>
+          <div style="font-size:16px;font-weight:600;color:${scoreColor};text-transform:uppercase;">${escHtml(csGuidance.label)}</div>
           <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Case viability score out of 100</div>
         </div>
       </div>
-      ${Object.keys(factors).length ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+      ${renderViabilityGuidance(score)}
+      ${Object.keys(factors).length ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px;">
         ${Object.entries(factors).map(([k, v]) => `<div style="background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:6px;">
           <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">${escHtml(k.replace(/_/g, ' '))}</div>
           <div style="color:#e2e8f0;font-weight:600;">${escHtml(String(v))}</div>
@@ -2306,7 +2392,7 @@ function renderChronologyTab(d) {
     <div class="summary-card"><div class="card-value">${Array.isArray(timeline) ? timeline.length : '--'}</div><div class="card-label">Events</div></div>
     <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
     <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.filter(g => !(g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:'))).length : '--'}</div><div class="card-label">Missing Docs</div></div>
-    <div class="summary-card clickable" onclick="App.showScore('chronology-confidence')"><div class="card-value">${ch.confidence_score != null ? (Number(ch.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card" style="display:flex;align-items:center;justify-content:center;"><button class="btn-ai-confidence" onclick="App.showAIConfidence()">&#129302; Show AI Confidence</button></div>
   </div>`;
 
   if (timeline.length) {
@@ -2389,7 +2475,7 @@ function renderLetterTab(d) {
   html += `<div class="summary-cards">
     <div class="summary-card"><div class="card-value">${escHtml(l.letter_type || '--')}</div><div class="card-label">Letter Type</div></div>
     <div class="summary-card"><div class="card-value">${escHtml(l.recipient_type || '--')}</div><div class="card-label">Recipient</div></div>
-    <div class="summary-card clickable" onclick="App.showScore('letter-confidence')"><div class="card-value">${l.confidence_score != null ? (Number(l.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card" style="display:flex;align-items:center;justify-content:center;"><button class="btn-ai-confidence" onclick="App.showAIConfidence()">&#129302; Show AI Confidence</button></div>
   </div>`;
 
   if (l.letter_body) {
@@ -2893,6 +2979,165 @@ document.addEventListener('DOMContentLoaded', init);
 
 // ==================== SCORE DETAIL MODALS ====================
 
+// ==================== VIABILITY GUIDANCE ====================
+function getViabilityGuidance(score) {
+  const s = Number(score) || 0;
+  if (s >= 91) return {
+    level: 'very-strong', label: 'Very Strong', color: '#10b981',
+    message: 'Case is ready for litigation. Proceed with dispute/demand.',
+    actions: []
+  };
+  if (s >= 76) return {
+    level: 'strong', label: 'Strong', color: '#22c55e',
+    message: 'Case is well-supported. Optional improvements may strengthen further.',
+    actions: ['Review documentation gaps for any remaining items', 'Confirm all bureau discrepancies are documented', 'Verify statute of limitations deadlines are calendared']
+  };
+  if (s >= 51) return {
+    level: 'moderate', label: 'Moderate', color: '#3b82f6',
+    message: 'Case is viable but has areas that need strengthening before proceeding.',
+    actions: ['Upload missing documentation identified in Chronology gaps', 'Gather additional evidence for weak scoring elements', 'Review FCRA violation analysis for additional claims', 'Consider requesting updated credit reports from all three bureaus']
+  };
+  if (s >= 26) return {
+    level: 'weak', label: 'Weak', color: '#f59e0b',
+    message: 'Case has potential but critical gaps must be addressed before proceeding.',
+    actions: ['Address all high-priority documentation gaps immediately', 'Verify client dispute history is complete and documented', 'Obtain certified mail receipts or other proof of disputes', 'Review whether additional FCRA violations exist', 'Consider whether this case should be declined or deferred']
+  };
+  return {
+    level: 'insufficient', label: 'Insufficient', color: '#ef4444',
+    message: 'Case lacks minimum viable elements. Significant action required or consider declining.',
+    actions: ['Evaluate whether sufficient evidence exists to pursue this case', 'Request all supporting documents from client', 'Verify the FCRA violation type is correctly identified', 'Confirm dates and dispute history are accurate', 'Consider declining if fundamental elements cannot be established']
+  };
+}
+
+function renderViabilityGuidance(score) {
+  const g = getViabilityGuidance(score);
+  let html = `<div class="viability-guidance vg-${g.level}">
+    <div class="vg-label" style="color:${g.color};">${g.label} (${score}/100)</div>
+    <div style="color:var(--text-secondary);">${g.message}</div>`;
+  if (g.actions.length) {
+    html += `<ul class="vg-actions">${g.actions.map(a => '<li>' + escHtml(a) + '</li>').join('')}</ul>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// ==================== HELP MODAL ====================
+function showHelp() {
+  closeScoreDetail();
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeScoreDetail(); };
+  overlay.innerHTML = `<div class="score-modal help-modal">
+    <button class="score-modal-close" onclick="App.closeScoreDetail()">&times;</button>
+    <h3>Scoring Guide</h3>
+
+    <h4>Case Viability Score (0&ndash;100)</h4>
+    <p>Measures how strong a case is for FCRA litigation. The goal is to get this score as close to 100 as possible. It is based on five elements, each scored 0&ndash;20:</p>
+    <ul>
+      <li><strong>Notice</strong> &mdash; Was the CRA properly notified of errors?</li>
+      <li><strong>Damages</strong> &mdash; Can actual or statutory damages be established?</li>
+      <li><strong>Inaccuracy</strong> &mdash; How clear is the credit report inaccuracy?</li>
+      <li><strong>Documentation</strong> &mdash; Is there sufficient supporting evidence?</li>
+      <li><strong>Failure to Investigate</strong> &mdash; Did the CRA fail its reinvestigation duty?</li>
+    </ul>
+
+    <h4>Viability Thresholds</h4>
+    <div class="help-threshold"><span class="ht-range" style="color:#ef4444;">0&ndash;25</span><span class="ht-label" style="color:#ef4444;">Insufficient</span><span>Case lacks minimum viable elements. Consider declining.</span></div>
+    <div class="help-threshold"><span class="ht-range" style="color:#f59e0b;">26&ndash;50</span><span class="ht-label" style="color:#f59e0b;">Weak</span><span>Critical gaps exist. Must address before proceeding.</span></div>
+    <div class="help-threshold"><span class="ht-range" style="color:#3b82f6;">51&ndash;75</span><span class="ht-label" style="color:#3b82f6;">Moderate</span><span>Viable but needs strengthening.</span></div>
+    <div class="help-threshold"><span class="ht-range" style="color:#22c55e;">76&ndash;90</span><span class="ht-label" style="color:#22c55e;">Strong</span><span>Well-supported. Ready to proceed.</span></div>
+    <div class="help-threshold"><span class="ht-range" style="color:#10b981;">91&ndash;100</span><span class="ht-label" style="color:#10b981;">Very Strong</span><span>Excellent case. Ready for litigation.</span></div>
+
+    <h4>AI Confidence Score</h4>
+    <p>A separate metric measuring how confident the AI system was in its own analysis. This is <strong>not</strong> a measure of case strength.</p>
+    <p>For example, 10% viability with 90% confidence means: <em>&ldquo;The AI is 90% certain this is a weak case.&rdquo;</em> High confidence on a low viability score is not a contradiction &mdash; it means the AI had sufficient data to reliably determine the case is weak.</p>
+    <p>Confidence may vary across pipeline stages because each AI agent evaluates different data:</p>
+    <ul>
+      <li><strong>Intake</strong> &mdash; works from complaint summary and uploaded documents</li>
+      <li><strong>Credit Report</strong> &mdash; works from parsed tradeline data (more structured data = higher confidence)</li>
+      <li><strong>Chronology</strong> &mdash; works from synthesized timeline (documentation gaps lower confidence)</li>
+      <li><strong>Letters</strong> &mdash; works from citations and compliance checks</li>
+    </ul>
+    <p>Access AI Confidence scores via the <strong>&ldquo;Show AI Confidence&rdquo;</strong> button on each tab.</p>
+
+    <h4>Case Closure Requirements</h4>
+    <p>Cases with a viability score below 76 (Strong) require an explicit override to close, ensuring the attorney has reviewed and accepted the risk of proceeding with a weaker case.</p>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+// ==================== AI CONFIDENCE MODAL ====================
+function showAIConfidence() {
+  const d = state.caseData;
+  if (!d) return;
+  let h = '';
+
+  // Intake
+  const triage = d.triage;
+  if (triage) {
+    const cs = triage.confidence_score;
+    const pct = cs != null ? (Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs)) : null;
+    h += '<div class="score-section-title">Intake Triage</div>';
+    if (pct != null) {
+      h += _barRow('Confidence', pct, 100);
+    } else {
+      h += _statRow('Confidence', 'N/A');
+    }
+  }
+
+  // Parser
+  const parsed = d.parsed;
+  if (parsed) {
+    const cs = parsed.confidence_score;
+    const pct = cs != null ? (Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs)) : null;
+    h += '<div class="score-section-title">Credit Report Parser</div>';
+    if (pct != null) {
+      h += _barRow('Confidence', pct, 100);
+    } else {
+      h += _statRow('Confidence', 'N/A');
+    }
+  }
+
+  // Chronology
+  const chrono = d.chronology;
+  if (chrono) {
+    const cs = chrono.confidence_score;
+    const pct = cs != null ? (Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs)) : null;
+    h += '<div class="score-section-title">Chronology Builder</div>';
+    if (pct != null) {
+      h += _barRow('Confidence', pct, 100);
+    } else {
+      h += _statRow('Confidence', 'N/A');
+    }
+  }
+
+  // Letter
+  const letter = d.letter;
+  if (letter) {
+    const cs = letter.confidence_score;
+    const pct = cs != null ? (Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs)) : null;
+    h += '<div class="score-section-title">Dispute Letter</div>';
+    if (pct != null) {
+      h += _barRow('Confidence', pct, 100);
+    } else {
+      h += _statRow('Confidence', 'N/A');
+    }
+    // Letter quality indicators
+    const csi = letter.full_synthesis?.case_strength_indicators;
+    if (csi) {
+      ['template_quality', 'citation_coverage', 'compliance_score'].forEach(function(k) {
+        if (csi[k] != null) h += _pctBar(k, csi[k]);
+      });
+    }
+  }
+
+  h += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-color);font-size:12px;color:var(--text-muted);">' +
+    'Confidence measures how certain the AI is in its analysis &mdash; not case strength. ' +
+    'Click the <strong>?</strong> button in the header for a full explanation.</div>';
+
+  showScoreDetail('AI Confidence Scores', h || '<div class="score-no-data">No confidence data available</div>');
+}
+
 function closeScoreDetail() {
   const el = document.querySelector('.score-modal-overlay');
   if (el) el.remove();
@@ -3135,7 +3380,9 @@ return {
   showScore,
   closeScoreDetail,
   closeCase,
-  filterByBadge
+  filterByBadge,
+  showHelp,
+  showAIConfidence
 };
 
 })(); // end IIFE
