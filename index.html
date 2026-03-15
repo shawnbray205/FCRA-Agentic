@@ -2195,15 +2195,17 @@ function renderIntakeTab(d) {
 
   let html = '<div class="stage-content">';
 
-  const intakeGuidance = getViabilityGuidance(t.viability_score);
+  const bestViability = getBestViabilityScore(d);
+  const displayViability = bestViability || t.viability_score;
+  const intakeGuidance = getViabilityGuidance(displayViability);
   html += `<div class="summary-cards">
-    <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value" style="color:${intakeGuidance.color}">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value" style="color:${intakeGuidance.color}">${displayViability ?? '--'}</div><div class="card-label">Viability Score</div></div>
     <div class="summary-card"><div class="card-value"><span class="badge badge-${t.priority_classification === 'high' ? 'critical' : t.priority_classification === 'medium' ? 'medium' : 'low'}">${escHtml(t.priority_classification || '--')}</span></div><div class="card-label">Priority</div></div>
     <div class="summary-card clickable" onclick="App.showScore('strength')"><div class="card-value${(t.strength_rating || '').length > 10 ? ' card-value-sm' : ''}">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
     <div class="summary-card" style="display:flex;align-items:center;justify-content:center;"><button class="btn-ai-confidence" onclick="App.showAIConfidence()">&#129302; Show AI Confidence</button></div>
   </div>`;
-  if (t.viability_score != null) {
-    html += renderViabilityGuidance(t.viability_score);
+  if (displayViability != null) {
+    html += renderViabilityGuidance(displayViability);
   }
 
   // Violation
