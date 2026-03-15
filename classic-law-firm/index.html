@@ -1,0 +1,3241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCRA Case Manager — Classic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ========== RESET & BASE ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Classic Law Firm Palette ── */
+  --bg-primary:    #06101e;   /* deep admiralty navy */
+  --bg-secondary:  #0c1c31;   /* dark council navy   */
+  --bg-tertiary:   #112340;   /* chamber navy        */
+  --bg-sidebar:    #071529;   /* vault navy          */
+  --bg-input:      #0e1f34;   /* input field navy    */
+
+  /* Gold family — warm, traditional, not chrome */
+  --accent-gold:   #c9a84c;   /* law firm gold       */
+  --accent-amber:  #b8952a;   /* antique gilt        */
+  --accent-copper: #d4af37;   /* gold leaf           */
+
+  /* Status tones — kept readable, slightly warmed */
+  --status-pending:  #6b7280;
+  --status-active:   #3b82f6;
+  --status-complete: #22c55e;
+  --status-error:    #ef4444;
+  --status-warning:  #f59e0b;
+
+  /* Typography — ivory/cream over dark navy */
+  --text-primary:   #f0e8d6;  /* parchment ivory     */
+  --text-secondary: #c4bdb0;  /* warm linen          */
+  --text-muted:     #8a7f6e;  /* aged ink            */
+
+  /* Borders — deep blue-slate, with a gold accent rule */
+  --border-color:   #1c3357;
+  --border-gold:    rgba(201, 168, 76, 0.35);
+
+  /* Layout & shape */
+  --sidebar-width: 280px;
+  --radius: 6px;   /* slightly sharper, more formal */
+
+  /* Fonts */
+  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: Georgia, 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+  --font-mono:    'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ========== LAYOUT ========== */
+#app {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "sidebar header"
+    "sidebar main"
+    "sidebar status";
+  height: 100vh;
+}
+
+/* ========== HEADER ========== */
+#config-bar {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 28px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  border-top: 3px solid var(--accent-gold);  /* formal gold crown rule */
+}
+
+#config-bar h1 {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--accent-gold);
+  white-space: nowrap;
+  letter-spacing: 0.8px;
+}
+
+#config-bar h1::before {
+  content: '⚖\FE0E\00A0\00A0'; /* scales of justice, no emoji rendering */
+  font-style: normal;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+#config-bar .header-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+  letter-spacing: 0.3px;
+}
+
+.connection-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; margin-right: 6px;
+}
+.connection-dot.connected { background: var(--status-complete); }
+.connection-dot.disconnected { background: var(--status-error); }
+
+/* ========== SIDEBAR ========== */
+#case-sidebar {
+  grid-area: sidebar;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#case-sidebar .sidebar-header {
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid var(--border-gold);
+}
+
+#case-sidebar .sidebar-header h2 {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #c9a84c, #b8952a);
+  color: #06101e;
+  width: 100%;
+  font-family: var(--font-sans);
+  letter-spacing: 0.4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.btn-primary:hover { background: linear-gradient(135deg, #d4b75e, #c9a84c); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+
+.btn-approve {
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+  border: 1px solid #22c55e;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.btn-approve:hover { background: rgba(34,197,94,0.25); }
+
+.btn-reject {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.btn-reject:hover { background: rgba(239,68,68,0.25); }
+
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+#badge-filter {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  appearance: auto;
+}
+#badge-filter:focus { outline: 1px solid var(--accent-gold); border-color: var(--accent-gold); }
+
+#case-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.case-item {
+  padding: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background 0.15s;
+  border: 1px solid transparent;
+}
+
+.case-item:hover { background: var(--bg-tertiary); }
+
+.case-item.active {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-gold);
+  border-left: 3px solid var(--accent-gold);
+}
+
+.case-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.case-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.case-stage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stage-intake { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.stage-parsing { background: rgba(168,85,247,0.2); color: #c084fc; }
+.stage-chronology { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.stage-letter { background: rgba(236,72,153,0.2); color: #f472b6; }
+.stage-comms { background: rgba(34,211,238,0.2); color: #22d3ee; }
+.stage-review { background: rgba(34,197,94,0.2); color: #4ade80; }
+.stage-closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
+
+/* Status badges */
+.case-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-new { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.status-processing { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.status-reanalysis_in_progress { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.status-awaiting_review { background: rgba(249,115,22,0.2); color: #fb923c; }
+.status-approved { background: rgba(34,197,94,0.2); color: #4ade80; }
+.status-needs_changes { background: rgba(239,68,68,0.2); color: #f87171; }
+.status-ready_to_close { background: rgba(20,184,166,0.2); color: #2dd4bf; }
+.status-closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
+.status-duplicate_closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
+
+/* Readiness checklist */
+.readiness-panel {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 0;
+}
+.readiness-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.readiness-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
+.readiness-item {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.readiness-item.done { color: #4ade80; }
+.readiness-item.pending { color: #fb923c; }
+.readiness-item.missing { color: #f87171; }
+.readiness-item .ri-icon { font-size: 14px; flex-shrink: 0; }
+.btn-close-case {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.btn-close-case:hover { opacity: 0.9; }
+.btn-close-case:disabled {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.priority-urgent { color: #ef4444; font-weight: 700; }
+.priority-high { color: #f59e0b; font-weight: 600; }
+.priority-medium { color: var(--text-secondary); }
+.priority-low { color: var(--text-muted); }
+
+/* ========== MAIN ========== */
+#workspace {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.no-case-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 16px;
+}
+
+.no-case-view .logo {
+  font-size: 52px;
+  opacity: 0.3;
+  filter: sepia(30%);
+}
+
+.no-case-view > div:last-child {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+
+/* Intake form */
+.intake-form {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.intake-form h2 {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+}
+
+.intake-form h2::after {
+  content: '';
+  display: block;
+  margin-top: 10px;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-gold), transparent);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.form-group textarea { min-height: 80px; resize: vertical; }
+
+.form-group .help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.required { color: var(--status-error); }
+
+.form-actions { margin-top: 24px; }
+
+/* Case detail view */
+.case-detail { max-width: 900px; }
+
+.case-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.case-detail-header h2 {
+  font-family: var(--font-heading);
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+}
+
+.case-detail-header .case-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 5px;
+  letter-spacing: 0.5px;
+}
+
+/* Pipeline progress */
+.pipeline-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-gold);
+  padding: 12px 16px;
+  align-items: center;
+}
+
+.pipeline-step {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  position: relative;
+}
+
+.pipeline-step.done { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.pipeline-step.active { background: rgba(201,168,76,0.15); color: var(--accent-gold); border: 1px solid var(--border-gold); animation: pulse 2s infinite; }
+.pipeline-step.pending { background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid transparent; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.pipeline-arrow {
+  color: var(--text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* Stage tabs */
+.stage-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-gold);
+}
+
+.stage-tab {
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.stage-tab:hover { color: var(--text-secondary); }
+.stage-tab.active { color: var(--accent-gold); border-bottom-color: var(--accent-gold); }
+.stage-tab.has-data { color: var(--text-primary); }
+.stage-tab.has-data::after { content: ' \2713'; color: var(--status-complete); font-size: 11px; }
+
+/* Stage content */
+.stage-content {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.stage-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Summary cards */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+  border-top: 2px solid var(--border-gold);
+  padding: 16px;
+  text-align: center;
+}
+
+.card-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.card-value.card-value-sm {
+  font-size: 15px;
+}
+.summary-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.card-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+/* Clickable score cards */
+.summary-card.clickable {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid transparent;
+}
+.summary-card.clickable:hover {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 8px rgba(212,175,55,0.15);
+}
+
+/* Score detail modal */
+.score-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.score-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-gold);
+  border-top: 3px solid var(--accent-gold);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.score-modal h3 {
+  font-family: var(--font-heading);
+  color: var(--accent-gold);
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+.score-modal-close, .revision-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+.score-modal-close:hover { color: var(--text-primary); }
+.score-bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.score-bar-label {
+  width: 45%;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+.score-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 8px;
+}
+.score-bar-fill {
+  height: 100%;
+  background: var(--accent-gold);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.score-bar-value {
+  width: 36px;
+  text-align: right;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.score-check-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.score-check-icon {
+  margin-right: 8px;
+  font-size: 14px;
+}
+.score-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+}
+.score-stat-row:last-child { border-bottom: none; }
+.score-stat-label { color: var(--text-secondary); }
+.score-stat-value { color: var(--text-primary); font-weight: 600; }
+.score-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 16px 0 8px 0;
+}
+.score-no-data {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  padding: 12px 0;
+}
+
+/* Revision notes modal */
+.revision-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-gold);
+  border-top: 3px solid var(--accent-gold);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 520px;
+  width: 90%;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.revision-modal h3 {
+  font-family: var(--font-heading);
+  color: var(--accent-gold);
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+.revision-modal p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0 0 16px 0;
+}
+.dupe-match-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--status-warning);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.revision-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 12px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.revision-textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+.revision-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.needs-changes-banner {
+  padding: 12px 16px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.needs-changes-banner .banner-title {
+  color: #f87171;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.needs-changes-banner .banner-notes {
+  color: #fca5a5;
+  font-style: italic;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+.btn-regenerate {
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59,130,246,0.3);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn-regenerate:hover {
+  background: rgba(59,130,246,0.25);
+}
+
+/* Communication badges and section headers */
+.comm-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+}
+.comm-badge-sent { background: rgba(74,222,128,0.15); color: #4ade80; }
+.comm-badge-approved { background: rgba(74,222,128,0.1); color: #86efac; }
+.comm-badge-failed { background: rgba(248,113,113,0.15); color: #f87171; }
+.comm-badge-auto { background: rgba(96,165,250,0.15); color: #60a5fa; }
+.comm-badge-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.comms-section-header {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--text-secondary); margin: 20px 0 8px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+.comms-section-header:first-child { margin-top: 0; }
+
+/* Result sections */
+.result-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.result-section-header {
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.result-section-header .toggle-icon { transition: transform 0.15s; font-size: 10px; }
+.result-section-header.open .toggle-icon { transform: rotate(90deg); }
+
+.result-section-body {
+  display: none;
+  padding: 16px;
+}
+
+.result-section-body.open { display: block; }
+
+.result-list { list-style: none; }
+.result-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(45,58,78,0.5);
+  font-size: 13px;
+}
+.result-list li:last-child { border-bottom: none; }
+.item-label { font-weight: 600; color: var(--text-secondary); display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+.item-value { color: var(--text-primary); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-critical { background: rgba(239,68,68,0.2); color: #f87171; }
+.badge-high { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.badge-medium { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.badge-low { background: rgba(34,197,94,0.2); color: #4ade80; }
+
+/* Attorney actions */
+.attorney-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  background: rgba(201,168,76,0.06);
+  border: 1px solid var(--border-gold);
+  border-left: 4px solid var(--accent-gold);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.attorney-actions .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: auto;
+}
+
+/* Activity timeline */
+.activity-timeline {
+  margin-top: 24px;
+}
+
+.activity-timeline h3 {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+}
+
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(45,58,78,0.3);
+  font-size: 12px;
+}
+
+.activity-item .time {
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 140px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.activity-item .actor {
+  color: var(--accent-copper);
+  min-width: 80px;
+}
+
+.activity-item .summary { color: var(--text-primary); }
+
+/* Document preview */
+.document-preview {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: Georgia, serif;   /* documents read in serif */
+}
+
+/* Draft banner */
+.draft-banner {
+  text-align: center;
+  padding: 8px 12px;
+  border: 1px dashed var(--accent-gold);
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+}
+
+/* Raw JSON */
+.raw-json {
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+/* Email preview */
+.email-preview {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.email-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+.email-field { margin-bottom: 4px; }
+.email-greeting { padding: 16px 16px 0; font-size: 13px; font-style: italic; color: var(--text-secondary); }
+.email-body { padding: 16px; font-size: 13px; white-space: pre-wrap; line-height: 1.7; }
+.email-action-items { padding: 0 16px 8px; font-size: 13px; }
+.email-action-items strong { display: block; margin-bottom: 8px; color: var(--accent-primary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.email-action-items ul { margin: 0; padding-left: 20px; }
+.email-action-items li { margin-bottom: 6px; line-height: 1.5; color: var(--text-primary); }
+.email-closing { padding: 0 16px 16px; font-size: 13px; white-space: pre-wrap; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 12px; }
+
+/* Loading */
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  gap: 16px;
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text { color: var(--text-muted); font-size: 13px; }
+
+/* Status bar */
+#status-bar {
+  grid-area: status;
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 28px;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border-gold);
+}
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-top: 8px;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent-gold);
+  background: rgba(212,168,67,0.06);
+}
+.upload-zone input[type="file"] { display: none; }
+.upload-zone .upload-icon { font-size: 24px; margin-bottom: 6px; }
+.upload-zone .upload-label { font-size: 13px; color: var(--text-secondary); }
+.upload-zone .upload-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.upload-file-list {
+  margin-top: 8px;
+}
+.upload-file-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; background: var(--bg-tertiary);
+  border-radius: 6px; margin-bottom: 4px; font-size: 12px;
+}
+.upload-file-item .file-name { flex: 1; color: var(--text-primary); }
+.upload-file-item .file-size { color: var(--text-muted); font-size: 11px; }
+.upload-file-item .remove-file {
+  color: var(--status-error); cursor: pointer; font-size: 14px;
+  background: none; border: none; padding: 0 4px;
+}
+
+.doc-recommendations {
+  margin-top: 12px; padding: 12px 16px;
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.15);
+  border-radius: var(--radius);
+}
+.doc-recommendations h4 {
+  font-size: 12px; color: #60a5fa; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 8px;
+}
+.doc-rec-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; margin-bottom: 4px; color: var(--text-secondary);
+}
+.doc-rec-item .req-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(239,68,68,0.15); color: #f87171; font-weight: 600;
+}
+.doc-rec-item .opt-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(100,116,139,0.2); color: #94a3b8;
+}
+
+/* Document cards in Documents tab */
+.doc-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: var(--bg-tertiary);
+  border-radius: var(--radius); margin-bottom: 8px;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-gold);
+}
+.doc-card .doc-icon { font-size: 20px; }
+.doc-card .doc-info { flex: 1; }
+.doc-card .doc-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.doc-card .doc-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.doc-card .doc-actions { display: flex; gap: 6px; }
+
+/* Gap upload button */
+.gap-upload-btn {
+  margin-top: 8px; padding: 4px 12px;
+  font-size: 11px; background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.3); border-radius: 4px;
+  color: #60a5fa; cursor: pointer; display: inline-flex;
+  align-items: center; gap: 4px;
+}
+.gap-upload-btn:hover { background: rgba(59,130,246,0.2); }
+
+/* Upload progress */
+.upload-progress {
+  margin-top: 6px; height: 4px; background: var(--bg-primary);
+  border-radius: 2px; overflow: hidden;
+}
+.upload-progress-bar {
+  height: 100%; background: var(--accent-gold);
+  transition: width 0.3s; border-radius: 2px;
+}
+
+/* Print styles */
+@media print {
+  #case-sidebar, #config-bar, #status-bar, .btn, .attorney-actions { display: none !important; }
+  #app { display: block !important; }
+  #workspace { padding: 0 !important; overflow: visible !important; }
+  body { background: #fff; color: #000; }
+  .draft-banner { color: #b45309; border-color: #b45309; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="case-sidebar">
+    <div class="sidebar-header">
+      <h2>Cases</h2>
+      <button class="btn btn-primary" onclick="App.showIntakeForm()">+ New Case</button>
+      <select id="badge-filter" onchange="App.filterByBadge(this.value)"></select>
+    </div>
+    <div id="case-list"></div>
+  </aside>
+
+  <!-- HEADER -->
+  <header id="config-bar">
+    <h1>FCRA CASE MANAGER</h1>
+    <span id="connection-status"></span>
+    <span class="header-meta" id="header-date"></span>
+  </header>
+
+  <!-- MAIN -->
+  <main id="workspace">
+    <div class="no-case-view">
+      <div class="logo">&#9878;</div>
+      <div>Create or select a case to begin</div>
+    </div>
+  </main>
+
+  <!-- STATUS BAR -->
+  <footer id="status-bar">
+    <span id="status-left">Ready</span>
+    <span id="status-right">FCRA Case Manager v2.0 — Supabase</span>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ============================================================
+// FCRA CASE MANAGER v2.0 — Supabase-Backed
+// ============================================================
+
+const App = (() => {
+
+// ==================== CONFIG ====================
+const SUPABASE_URL = 'https://qygsgyiyxabztaghggvt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5Z3NneWl5eGFienRhZ2hnZ3Z0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4NjAxNDQsImV4cCI6MjA4MTQzNjE0NH0.u_rYAJVp4C2KEuMPsR_I94wsdAbJT3yS-zMliicuYVo'; // Replace with actual anon key
+const N8N_BASE_URL = 'https://sbray205.app.n8n.cloud';
+const N8N_SEND_WEBHOOK = N8N_BASE_URL + '/webhook/fcra-send-comm';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STAGE_ORDER = ['intake', 'parsing', 'chronology', 'letter', 'comms', 'review', 'closed'];
+const STAGE_LABELS = {
+  intake: 'Intake', parsing: 'Parser', chronology: 'Chronology',
+  letter: 'Letter', comms: 'Comms', review: 'Review', closed: 'Closed'
+};
+const STATUS_LABELS = {
+  new: 'New', processing: 'Processing', reanalysis_in_progress: 'Re-Analyzing',
+  awaiting_review: 'Awaiting Review', approved: 'Approved',
+  needs_changes: 'Needs Changes', ready_to_close: 'Ready to Close',
+  closed: 'Closed', duplicate_closed: 'Duplicate (Closed)'
+};
+
+// Smart badge: combines stage + status into one clear label
+function getSmartBadge(c) {
+  const stage = c.case_stage;
+  const status = c.case_status;
+
+  // Status-driven states (override stage)
+  if (status === 'closed' || status === 'duplicate_closed')
+    return { label: status === 'closed' ? 'Closed' : 'Duplicate', css: 'status-closed' };
+  if (status === 'ready_to_close')
+    return { label: 'Ready to Close', css: 'status-ready_to_close' };
+  if (status === 'needs_changes')
+    return { label: 'Needs Changes', css: 'status-needs_changes' };
+  if (status === 'approved')
+    return { label: 'Approved', css: 'status-approved' };
+  if (status === 'awaiting_review')
+    return { label: 'Awaiting Review', css: 'status-awaiting_review' };
+  if (status === 'reanalysis_in_progress')
+    return { label: 'Re-Analyzing', css: 'status-reanalysis_in_progress' };
+
+  // Stage-driven states (during pipeline processing)
+  if (status === 'processing' || status === 'new') {
+    const stageMap = {
+      intake: { label: 'Intake', css: 'stage-intake' },
+      parsing: { label: 'Parsing', css: 'stage-parsing' },
+      chronology: { label: 'Building Chronology', css: 'stage-chronology' },
+      letter: { label: 'Generating Letter', css: 'stage-letter' },
+      comms: { label: 'Generating Comms', css: 'stage-comms' },
+      review: { label: 'Processing', css: 'status-processing' }
+    };
+    return stageMap[stage] || { label: STATUS_LABELS[status] || status, css: 'status-processing' };
+  }
+
+  return { label: STATUS_LABELS[status] || status, css: 'status-processing' };
+}
+
+// ==================== ERROR-TYPE DOCUMENT MAP ====================
+const ERROR_TYPE_DOCS = {
+  inaccurate_information: [
+    { type: 'credit_report', label: 'Credit Report (all 3 bureaus)', required: true },
+    { type: 'dispute_letter', label: 'Prior Dispute Letter(s)', required: false },
+    { type: 'proof_of_accuracy', label: 'Proof of Correct Information (e.g., bank statements)', required: false }
+  ],
+  mixed_file: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'identity_docs', label: 'Identity Documents (SSN card, Driver License)', required: true },
+    { type: 'mixed_file_evidence', label: 'Evidence of Mixed Information', required: false }
+  ],
+  identity_theft: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'police_report', label: 'Police/FTC Identity Theft Report', required: true },
+    { type: 'identity_docs', label: 'Identity Documents', required: true },
+    { type: 'fraud_affidavit', label: 'Fraud Affidavit', required: false }
+  ],
+  reinvestigation_failure: [
+    { type: 'credit_report', label: 'Credit Report (before & after dispute)', required: true },
+    { type: 'dispute_letter', label: 'Original Dispute Letter', required: true },
+    { type: 'cra_response', label: 'CRA Response / Investigation Results', required: true },
+    { type: 'supporting_docs', label: 'Evidence Submitted with Dispute', required: false }
+  ],
+  furnisher_violation: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'account_statements', label: 'Account Statements', required: true },
+    { type: 'dispute_letter', label: 'Prior Dispute to Furnisher', required: false },
+    { type: 'furnisher_response', label: 'Furnisher Response', required: false }
+  ],
+  unauthorized_inquiry: [
+    { type: 'credit_report', label: 'Credit Report Showing Inquiry', required: true },
+    { type: 'denial_letter', label: 'Credit Denial Letter (if applicable)', required: false },
+    { type: 'correspondence', label: 'Any Correspondence with Inquiring Party', required: false }
+  ],
+  obsolete_data: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'proof_of_age', label: 'Proof of Account Age / Discharge Date', required: false }
+  ],
+  background_check: [
+    { type: 'background_report', label: 'Background Check Report', required: true },
+    { type: 'adverse_action', label: 'Adverse Action Notice', required: true },
+    { type: 'authorization', label: 'Original Authorization Form', required: false }
+  ],
+  medical_debt: [
+    { type: 'credit_report', label: 'Credit Report', required: true },
+    { type: 'medical_records', label: 'Medical Bills / Insurance EOBs', required: true },
+    { type: 'insurance_docs', label: 'Insurance Coverage Documentation', required: false }
+  ],
+  credit_report: [
+    { type: 'credit_report', label: 'Credit Report (all 3 bureaus)', required: true },
+    { type: 'dispute_letter', label: 'Prior Dispute Letter(s)', required: false },
+    { type: 'supporting_docs', label: 'Any Supporting Documentation', required: false }
+  ]
+};
+
+// ==================== STATE ====================
+let state = {
+  cases: [],
+  currentCaseId: null,
+  currentTab: 'intake',
+  caseData: null,  // full joined data for selected case
+  isSubmitting: false,
+  realtimeChannel: null,
+  badgeFilter: 'all'
+};
+
+// ==================== SUPABASE QUERIES ====================
+async function fetchCases() {
+  const { data, error } = await supabase
+    .from('fcra_cases')
+    .select('id, client_name, case_stage, case_status, priority, created_at, updated_at')
+    .order('updated_at', { ascending: false });
+  if (error) { setStatus('Error loading cases: ' + error.message); return []; }
+  return data || [];
+}
+
+async function fetchCaseDetail(caseId) {
+  const [caseRes, triageRes, parsedRes, chronRes, letterRes, commsRes, activityRes, docsRes, gapsRes] = await Promise.all([
+    supabase.from('fcra_cases').select('*').eq('id', caseId).single(),
+    supabase.from('fcra_triage_results').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_parsed_reports').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_case_chronology').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_letters').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
+    supabase.from('fcra_communications').select('*').eq('case_id', caseId).order('created_at', { ascending: false }),
+    supabase.from('fcra_case_activity').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50),
+    supabase.from('fcra_case_documents').select('*').eq('case_id', caseId).order('created_at', { ascending: false }),
+    supabase.from('fcra_case_gaps').select('*').eq('case_id', caseId)
+  ]);
+
+  return {
+    case_record: caseRes.data,
+    triage: triageRes.data?.[0] || null,
+    parsed: parsedRes.data?.[0] || null,
+    chronology: chronRes.data?.[0] || null,
+    letter: letterRes.data?.[0] || null,
+    communications: commsRes.data || [],
+    activity: activityRes.data || [],
+    documents: docsRes.data || [],
+    gaps: gapsRes.data || []
+  };
+}
+
+// ==================== REALTIME ====================
+function subscribeToChanges() {
+  if (state.realtimeChannel) state.realtimeChannel.unsubscribe();
+
+  const realtimeHandler = async () => {
+    state.cases = await fetchCases();
+    renderCaseList();
+    if (state.currentCaseId) {
+      state.caseData = await fetchCaseDetail(state.currentCaseId);
+      renderWorkspace();
+    }
+  };
+  state.realtimeChannel = supabase
+    .channel('fcra-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_cases' }, realtimeHandler)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_communications' }, realtimeHandler)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fcra_case_activity' }, realtimeHandler)
+    .subscribe();
+}
+
+// ==================== HELPERS ====================
+function formatDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatShortDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function setStatus(msg) {
+  document.getElementById('status-left').textContent = msg;
+}
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str ?? '');
+  return div.innerHTML;
+}
+
+function escAttr(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stageIndex(stage) {
+  return STAGE_ORDER.indexOf(stage);
+}
+
+// ==================== INTAKE FORM ====================
+function showIntakeForm() {
+  state.currentCaseId = null;
+  state.caseData = null;
+  renderCaseList();
+
+  const workspace = document.getElementById('workspace');
+  workspace.innerHTML = `
+    <div class="intake-form">
+      <h2>New FCRA Case Intake</h2>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">
+        Submit a new case to run the full FCRA analysis pipeline (Intake Triage, Credit Report Parsing, Case Chronology, Dispute Letter, Client Communications).
+      </p>
+      <div class="form-group">
+        <label>Client Name <span class="required">*</span></label>
+        <input type="text" id="field-client_name" placeholder="Full legal name">
+      </div>
+      <div class="form-group">
+        <label>Client Email</label>
+        <input type="email" id="field-client_email" placeholder="client@example.com">
+      </div>
+      <div class="form-group">
+        <label>Complaint Summary <span class="required">*</span></label>
+        <textarea id="field-complaint_summary" rows="4" placeholder="Describe the FCRA violation or complaint..."></textarea>
+        <div class="help-text">Include details about credit report errors, disputed items, and impact on the client.</div>
+      </div>
+      <div class="form-group">
+        <label>Error Type <span class="required">*</span></label>
+        <select id="field-error_type" onchange="App.onErrorTypeChange(this.value)">
+          <option value="">-- Select --</option>
+          <option value="inaccurate_information">Inaccurate Information</option>
+          <option value="mixed_file">Mixed File</option>
+          <option value="identity_theft">Identity Theft</option>
+          <option value="reinvestigation_failure">Reinvestigation Failure</option>
+          <option value="furnisher_violation">Furnisher Violation</option>
+          <option value="unauthorized_inquiry">Unauthorized Inquiry</option>
+          <option value="obsolete_data">Obsolete Data</option>
+          <option value="background_check">Background Check</option>
+          <option value="medical_debt">Medical Debt</option>
+          <option value="credit_report">Credit Report Error</option>
+        </select>
+      </div>
+      <div id="doc-upload-section" style="display:none;">
+        <div class="doc-recommendations" id="doc-recommendations"></div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Upload Documents</label>
+          <div class="upload-zone" id="upload-zone"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="event.preventDefault();this.classList.remove('drag-over');App.handleFileDrop(event)">
+            <input type="file" id="file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.csv"
+                   onchange="App.handleFileSelect(event)">
+            <div class="upload-icon">&#128206;</div>
+            <div class="upload-label">Click or drag files here</div>
+            <div class="upload-hint">PDF, images, Word docs &mdash; max 10MB each</div>
+          </div>
+          <div class="upload-file-list" id="file-list"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Discovery Date</label>
+        <input type="date" id="field-discovery_date">
+        <div class="help-text">When did the client discover the error?</div>
+      </div>
+      <div class="form-group">
+        <label>Dispute History</label>
+        <textarea id="field-dispute_history" rows="3" placeholder="Prior dispute attempts with CRAs..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="field-priority">
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="App.submitIntake()" id="btn-submit">
+          Submit &amp; Run Pipeline
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function checkForDuplicateCase(payload) {
+  // Match by client name + error type (case-insensitive name match)
+  const { data } = await supabase.from('fcra_cases')
+    .select('id, client_name, client_email, error_type, case_stage, case_status, created_at')
+    .eq('error_type', payload.error_type)
+    .ilike('client_name', payload.client_name)
+    .not('case_status', 'in', '("duplicate_closed","closed")');
+
+  return data || [];
+}
+
+function showDuplicateReviewModal(matches, payload) {
+  closeDuplicateModal();
+  const matchList = matches.map(m =>
+    `<div class="dupe-match-card">
+      <strong>${escHtml(m.client_name)}</strong> &mdash; ${escHtml(m.error_type)}<br>
+      <span style="font-size:11px;color:var(--text-muted);">
+        Stage: ${STAGE_LABELS[m.case_stage] || m.case_stage} &middot; Status: ${m.case_status} &middot; Created: ${formatShortDate(m.created_at)}
+      </span><br>
+      <span style="font-size:11px;color:var(--text-muted);">ID: ${m.id}</span>
+    </div>`
+  ).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.id = 'duplicate-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeDuplicateModal(); };
+  overlay.innerHTML = `<div class="revision-modal" style="max-width:560px;">
+    <button class="revision-modal-close" onclick="App.closeDuplicateModal()">&times;</button>
+    <h3 style="color:var(--status-warning);">&#9888; Possible Duplicate Case</h3>
+    <p style="font-size:13px;color:var(--text-secondary);">
+      A case with the same client and error type already exists. Review the match below and decide whether to proceed.
+    </p>
+    <div style="margin:12px 0;">${matchList}</div>
+    <div class="revision-actions" style="justify-content:flex-end;gap:10px;">
+      <button class="btn btn-secondary" onclick="App.closeDuplicateModal()">Cancel</button>
+      <button class="btn btn-approve" onclick="App.confirmUniqueCase()">Confirm Unique &mdash; Create Case</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  // Stash payload for confirmUniqueCase
+  state.pendingIntakePayload = payload;
+}
+
+function closeDuplicateModal() {
+  const el = document.getElementById('duplicate-modal-overlay');
+  if (el) el.remove();
+}
+
+async function confirmUniqueCase() {
+  closeDuplicateModal();
+  const payload = state.pendingIntakePayload;
+  if (!payload) { setStatus('Error: no pending intake'); return; }
+  state.pendingIntakePayload = null;
+
+  // Proceed with normal intake submission
+  state.isSubmitting = true;
+  const btn = document.getElementById('btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  setStatus('Submitting to FCRA pipeline...');
+  await executeIntakeSubmission(payload);
+}
+
+async function submitIntake() {
+  if (state.isSubmitting) return;
+
+  const clientName = document.getElementById('field-client_name')?.value.trim();
+  const complaintSummary = document.getElementById('field-complaint_summary')?.value.trim();
+  const errorType = document.getElementById('field-error_type')?.value;
+
+  if (!clientName || !complaintSummary || !errorType) {
+    setStatus('Please fill in all required fields');
+    ['field-client_name', 'field-complaint_summary', 'field-error_type'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) el.style.borderColor = 'var(--status-error)';
+    });
+    return;
+  }
+
+  const payload = {
+    client_name: clientName,
+    client_email: document.getElementById('field-client_email')?.value.trim() || null,
+    complaint_summary: complaintSummary,
+    error_type: errorType,
+    discovery_date: document.getElementById('field-discovery_date')?.value || null,
+    dispute_history: document.getElementById('field-dispute_history')?.value.trim() || '',
+    priority: document.getElementById('field-priority')?.value || 'medium'
+  };
+
+  // Duplicate check — match on client_email + error_type on open cases
+  setStatus('Checking for duplicate cases...');
+  const dupeMatches = await checkForDuplicateCase(payload);
+  if (dupeMatches.length > 0) {
+    showDuplicateReviewModal(dupeMatches, payload);
+    return;
+  }
+
+  state.isSubmitting = true;
+  const btn = document.getElementById('btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  setStatus('Submitting to FCRA pipeline...');
+  await executeIntakeSubmission(payload);
+}
+
+async function executeIntakeSubmission(payload) {
+  try {
+    // Phase 1: Create case directly in Supabase (instant)
+    setStatus('Creating case...');
+    const { data: caseData, error: caseErr } = await supabase
+      .from('fcra_cases')
+      .insert({
+        client_name: payload.client_name || 'Unknown',
+        client_email: payload.client_email || null,
+        error_type: payload.error_type || 'credit_report',
+        complaint_summary: payload.complaint_summary || '',
+        discovery_date: payload.discovery_date || null,
+        dispute_history: payload.dispute_history || '',
+        case_stage: 'intake',
+        case_status: 'new',
+        priority: payload.priority || 'medium',
+        assigned_attorney: payload.assigned_attorney || 'Adam Singer',
+        metadata: payload.metadata || {}
+      })
+      .select()
+      .single();
+
+    if (caseErr) throw new Error('Failed to create case: ' + caseErr.message);
+    const caseId = caseData.id;
+    console.log('Case created:', caseId);
+    setStatus('Case created. Uploading documents...');
+
+    // Phase 2: Upload documents (now that we have case_id)
+    if (pendingFiles.length > 0) {
+      console.log('Uploading', pendingFiles.length, 'files to case', caseId);
+      const uploaded = await uploadCaseDocuments(caseId, pendingFiles, 'intake');
+      console.log('Upload results:', JSON.stringify(uploaded));
+      if (uploaded.length) {
+        await supabase.from('fcra_case_activity').insert({
+          case_id: caseId,
+          activity_type: 'document_upload',
+          stage: 'intake',
+          actor: 'dashboard',
+          summary: 'Uploaded ' + uploaded.length + ' document(s) at intake',
+          details: { files: uploaded.map(u => u.file_name) }
+        });
+        setStatus(uploaded.length + ' document(s) uploaded. Starting pipeline...');
+      }
+      pendingFiles = [];
+    }
+
+    // Phase 3: Trigger pipeline in background (fire-and-forget)
+    // onReceived mode = instant 200, pipeline runs asynchronously
+    fetch(N8N_BASE_URL + '/webhook/fcra-pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, case_id: caseId })
+    }).catch(err => console.warn('Pipeline trigger (non-blocking):', err.message));
+
+    setStatus('Case created & documents uploaded. Pipeline processing in background.');
+
+    // Refresh case list and select the new case
+    state.cases = await fetchCases();
+    await selectCase(caseId);
+
+  } catch (err) {
+    setStatus('Error: ' + err.message);
+    state.cases = await fetchCases();
+    renderCaseList();
+  }
+
+  state.isSubmitting = false;
+}
+
+// ==================== CASE SELECTION ====================
+async function selectCase(id) {
+  state.currentCaseId = id;
+  state.currentTab = 'intake';
+  setStatus('Loading case...');
+
+  state.caseData = await fetchCaseDetail(id);
+  setStatus('Case loaded');
+  renderCaseList();
+  renderWorkspace();
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  renderWorkspace();
+}
+
+// ==================== CASE READINESS ====================
+function getCaseReadiness(d) {
+  const items = [];
+  const letters = d.letter ? [d.letter] : [];
+  const comms = d.communications || [];
+  const gaps = d.gaps || [];
+
+  // Letters — approved is sufficient (dispute letters are mailed to CRAs, not emailed)
+  const totalLetters = letters.length;
+  const approvedLetters = letters.filter(l => l.approval_status === 'approved' || l.approval_status === 'sent').length;
+
+  if (totalLetters > 0) {
+    items.push({
+      label: `Dispute letter${totalLetters > 1 ? 's' : ''} approved`,
+      status: approvedLetters === totalLetters ? 'done' : 'pending',
+      detail: `${approvedLetters}/${totalLetters}`
+    });
+  } else {
+    items.push({ label: 'Dispute letter generated', status: 'missing', detail: 'None' });
+  }
+
+  // Communications
+  const reviewableComms = comms.filter(c => c.requires_approval !== false);
+  const totalComms = reviewableComms.length;
+  const approvedComms = reviewableComms.filter(c => c.approval_status === 'approved' || c.approval_status === 'sent').length;
+  const sentComms = reviewableComms.filter(c => c.approval_status === 'sent').length;
+
+  if (totalComms > 0) {
+    items.push({
+      label: `Client comm${totalComms > 1 ? 's' : ''} approved`,
+      status: approvedComms === totalComms ? 'done' : 'pending',
+      detail: `${approvedComms}/${totalComms}`
+    });
+    items.push({
+      label: `Client comm${totalComms > 1 ? 's' : ''} sent`,
+      status: sentComms === totalComms ? 'done' : approvedComms > 0 ? 'pending' : 'missing',
+      detail: `${sentComms}/${totalComms}`
+    });
+  } else if (comms.length > 0) {
+    // All comms are auto-approved system messages (requires_approval: false) — count as done
+    items.push({ label: 'Client communications sent', status: 'done', detail: 'Auto-sent' });
+  } else {
+    items.push({ label: 'Client communications generated', status: 'missing', detail: 'None' });
+  }
+
+  // Chronology
+  items.push({
+    label: 'Timeline built',
+    status: d.chronology ? 'done' : 'missing',
+    detail: d.chronology ? 'Complete' : 'Not yet'
+  });
+
+  // Documents / Gaps
+  const criticalGaps = gaps.filter(g => g.priority === 'critical' && g.status !== 'provided');
+  items.push({
+    label: 'Critical document gaps',
+    status: criticalGaps.length === 0 ? 'done' : 'missing',
+    detail: criticalGaps.length === 0 ? 'None remaining' : `${criticalGaps.length} outstanding`
+  });
+
+  const allDone = items.every(i => i.status === 'done');
+  return { items, allDone };
+}
+
+async function checkReadyToClose() {
+  const d = state.caseData;
+  if (!d || !d.case_record) return;
+  const c = d.case_record;
+
+  // Only auto-promote from approved → ready_to_close
+  if (c.case_status !== 'approved') return;
+
+  const readiness = getCaseReadiness(d);
+  if (readiness.allDone) {
+    await supabase.from('fcra_cases').update({
+      case_status: 'ready_to_close'
+    }).eq('id', state.currentCaseId);
+
+    await supabase.from('fcra_case_activity').insert({
+      case_id: state.currentCaseId,
+      activity_type: 'ready_to_close',
+      stage: 'review',
+      actor: 'system',
+      summary: 'All items complete — case is ready to close'
+    });
+
+    state.caseData = await fetchCaseDetail(state.currentCaseId);
+    state.cases = await fetchCases();
+    renderCaseList();
+    setStatus('All items complete — case is ready to close');
+  }
+}
+
+async function closeCase() {
+  const d = state.caseData;
+  if (!d || !d.case_record) return;
+
+  const readiness = getCaseReadiness(d);
+  if (!readiness.allDone) {
+    const pending = readiness.items.filter(i => i.status !== 'done').map(i => i.label).join(', ');
+    setStatus('Cannot close — pending items: ' + pending);
+    return;
+  }
+
+  if (!confirm('Close this case? This marks it as fully resolved.')) return;
+
+  await supabase.from('fcra_cases').update({
+    case_status: 'closed',
+    case_stage: 'closed'
+  }).eq('id', state.currentCaseId);
+
+  await supabase.from('fcra_case_activity').insert({
+    case_id: state.currentCaseId,
+    activity_type: 'case_closed',
+    stage: 'closed',
+    actor: 'attorney',
+    summary: 'Case closed by attorney'
+  });
+
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  state.cases = await fetchCases();
+  renderCaseList();
+  renderWorkspace();
+  setStatus('Case closed successfully');
+}
+
+// ==================== ATTORNEY ACTIONS ====================
+async function approveStage(table, recordId) {
+  const { error } = await supabase
+    .from(table)
+    .update({ approval_status: 'approved', approved_by: 'Attorney', approved_at: new Date().toISOString() })
+    .eq('id', recordId);
+
+  if (error) { setStatus('Error: ' + error.message); return; }
+
+  // Log activity
+  await supabase.from('fcra_case_activity').insert({
+    case_id: state.currentCaseId,
+    activity_type: 'attorney_approval',
+    stage: state.currentTab,
+    actor: 'attorney',
+    summary: 'Approved ' + state.currentTab + ' output',
+    details: { table, record_id: recordId }
+  });
+
+  // Trigger email send for approved communications
+  if (table === 'fcra_communications') {
+    setStatus('Approved — sending email...');
+    try {
+      const sendResp = await fetch(N8N_SEND_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comm_id: recordId, case_id: state.currentCaseId })
+      });
+      if (sendResp.ok) {
+        setStatus('Approved & email sent');
+      } else {
+        setStatus('Approved but email send failed — check workflow');
+      }
+    } catch (e) {
+      setStatus('Approved but email send unavailable — will retry');
+    }
+    // Brief delay to ensure DB write propagates before re-fetch
+    await new Promise(r => setTimeout(r, 500));
+  } else {
+    setStatus('Approved');
+  }
+
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+
+  // Auto-promote case to approved if all reviewable outputs are approved/sent
+  await checkCaseApproval();
+  // Check if case is ready to close (all items sent)
+  await checkReadyToClose();
+
+  renderWorkspace();
+}
+
+async function checkCaseApproval() {
+  const d = state.caseData;
+  if (!d || !d.case_record || d.case_record.case_status !== 'awaiting_review') return;
+
+  const letters = d.letter ? [d.letter] : [];
+  const comms = d.communications || [];
+
+  // Letters must be approved
+  const pendingLetters = letters.filter(l => l.approval_status && l.approval_status !== 'approved');
+  // Comms that require approval must be approved or sent
+  const pendingComms = comms.filter(c => c.requires_approval !== false && c.approval_status !== 'approved' && c.approval_status !== 'sent');
+
+  if (pendingLetters.length === 0 && pendingComms.length === 0) {
+    await supabase.from('fcra_cases').update({ case_status: 'approved' }).eq('id', state.currentCaseId);
+    await supabase.from('fcra_case_activity').insert({
+      case_id: state.currentCaseId,
+      activity_type: 'case_approved',
+      stage: 'review',
+      actor: 'system',
+      summary: 'All outputs approved — case auto-promoted to approved'
+    });
+    setStatus('All outputs approved — case promoted to approved');
+    // Re-fetch to pick up the case status change
+    state.caseData = await fetchCaseDetail(state.currentCaseId);
+    state.cases = await fetchCases();
+    renderCaseList();
+  }
+}
+
+async function retrySend(commId) {
+  setStatus('Retrying email send...');
+  try {
+    // Clear previous error
+    await supabase.from('fcra_communications').update({ send_error: null }).eq('id', commId);
+    const resp = await fetch(N8N_SEND_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comm_id: commId, case_id: state.currentCaseId })
+    });
+    if (resp.ok) {
+      setStatus('Email sent successfully');
+    } else {
+      setStatus('Retry failed — check workflow');
+    }
+  } catch (e) {
+    setStatus('Send unavailable — workflow may not be running');
+  }
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  renderWorkspace();
+}
+
+function requestChanges(table, recordId) {
+  // Show modal for attorney to enter revision notes
+  closeRevisionModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.id = 'revision-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeRevisionModal(); };
+  overlay.innerHTML = '<div class="revision-modal">' +
+    '<button class="revision-modal-close" onclick="App.closeRevisionModal()">&times;</button>' +
+    '<h3>Request Changes</h3>' +
+    '<p>Describe what changes are needed. These notes will be used when regenerating the draft.</p>' +
+    '<textarea class="revision-textarea" id="revision-notes-input" placeholder="e.g., Add stronger \u00a71681e(b) language about furnisher duties, remove emotional distress paragraph, include specific dispute dates..."></textarea>' +
+    '<div class="revision-actions">' +
+    '<button class="btn btn-secondary" onclick="App.closeRevisionModal()">Cancel</button>' +
+    '<button class="btn btn-reject" onclick="App.submitRevisionRequest(\'' + table + '\', \'' + recordId + '\')">Submit Changes Request</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  setTimeout(function() { document.getElementById('revision-notes-input').focus(); }, 100);
+}
+
+function closeRevisionModal() {
+  const el = document.getElementById('revision-modal-overlay');
+  if (el) el.remove();
+}
+
+async function submitRevisionRequest(table, recordId) {
+  const notes = (document.getElementById('revision-notes-input').value || '').trim();
+  if (!notes) { setStatus('Please enter revision notes'); return; }
+
+  closeRevisionModal();
+
+  const { error } = await supabase
+    .from(table)
+    .update({ approval_status: 'needs_changes', revision_notes: notes })
+    .eq('id', recordId);
+
+  if (error) { setStatus('Error: ' + error.message); return; }
+
+  await supabase.from('fcra_case_activity').insert({
+    case_id: state.currentCaseId,
+    activity_type: 'changes_requested',
+    stage: state.currentTab,
+    actor: 'attorney',
+    summary: 'Requested changes: ' + notes.substring(0, 120),
+    details: { table, record_id: recordId, revision_notes: notes }
+  });
+
+  await supabase.from('fcra_cases').update({ case_status: 'needs_changes' }).eq('id', state.currentCaseId);
+
+  setStatus('Changes requested — revision notes saved');
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  renderWorkspace();
+}
+
+async function regenerateStage(stage) {
+  // stage: 'letter' or 'comms'
+  const caseId = state.currentCaseId;
+  if (!caseId) { setStatus('No case selected'); return; }
+
+  // Read notes from the inline textarea (if visible), otherwise fall back to DB
+  const table = stage === 'letter' ? 'fcra_letters' : 'fcra_communications';
+  const textareaId = stage === 'letter' ? 'letter-revision-notes' : 'comms-revision-notes';
+  const textarea = document.getElementById(textareaId);
+  let notes = textarea ? textarea.value.trim() : '';
+
+  if (!notes) {
+    const { data } = await supabase.from(table).select('revision_notes').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1).single();
+    notes = data?.revision_notes || '';
+  }
+
+  if (!notes) { setStatus('Please enter revision notes before regenerating'); return; }
+
+  // Save updated notes to DB
+  await supabase.from(table).update({ revision_notes: notes }).eq('case_id', caseId);
+
+  setStatus('Regenerating ' + stage + ' draft...');
+
+  // Call the appropriate sub-workflow via WF0 orchestrator or direct webhook
+  // For now, log activity and set status — actual WF integration requires n8n webhook
+  await supabase.from('fcra_case_activity').insert({
+    case_id: caseId,
+    activity_type: 'regeneration_requested',
+    stage: stage,
+    actor: 'attorney',
+    summary: 'Requested ' + stage + ' regeneration with revision notes',
+    details: { revision_notes: notes }
+  });
+
+  // Update case stage to trigger re-processing
+  await supabase.from('fcra_cases').update({
+    case_status: 'processing',
+    case_stage: stage
+  }).eq('id', caseId);
+
+  setStatus('Regeneration requested — workflow will re-run the ' + stage + ' stage with your revision notes. Refresh in a moment to see the updated draft.');
+  state.caseData = await fetchCaseDetail(caseId);
+  renderWorkspace();
+}
+
+// ==================== RENDER: CASE LIST ====================
+function filterByBadge(value) {
+  state.badgeFilter = value;
+  renderCaseList();
+}
+
+function renderCaseList() {
+  const container = document.getElementById('case-list');
+
+  // Build badge counts and populate filter dropdown dynamically
+  const badgeCounts = {};
+  state.cases.forEach(c => {
+    const label = getSmartBadge(c).label;
+    badgeCounts[label] = (badgeCounts[label] || 0) + 1;
+  });
+
+  const filterEl = document.getElementById('badge-filter');
+  if (filterEl) {
+    const BADGE_ORDER = [
+      'Intake', 'Parsing', 'Building Chronology', 'Generating Letter', 'Generating Comms',
+      'Processing', 'Re-Analyzing', 'Awaiting Review', 'Needs Changes', 'Approved',
+      'Ready to Close', 'Closed', 'Duplicate'
+    ];
+    const prev = state.badgeFilter;
+    filterEl.innerHTML = `<option value="all">All Statuses (${state.cases.length})</option>` +
+      BADGE_ORDER.filter(b => badgeCounts[b]).map(b =>
+        `<option value="${b}" ${prev === b ? 'selected' : ''}>${b} (${badgeCounts[b]})</option>`
+      ).join('');
+  }
+
+  // Apply badge filter
+  const filtered = state.badgeFilter === 'all'
+    ? state.cases
+    : state.cases.filter(c => getSmartBadge(c).label === state.badgeFilter);
+
+  if (filtered.length === 0) {
+    const msg = state.cases.length === 0 ? 'No cases yet' : 'No cases match filter';
+    container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">${msg}</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(c => {
+    const isActive = c.id === state.currentCaseId;
+    return `
+      <div class="case-item ${isActive ? 'active' : ''}" onclick="App.selectCase('${c.id}')">
+        <div class="case-name">
+          <span>${escHtml(c.client_name || 'Untitled')}</span>
+          <span class="priority-${c.priority || 'medium'}" style="font-size:11px;">${c.priority || ''}</span>
+        </div>
+        <div class="case-meta">
+          <span class="case-stage-badge ${getSmartBadge(c).css}">${getSmartBadge(c).label}</span>
+          &middot; ${formatShortDate(c.updated_at)}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==================== RENDER: READINESS PANEL ====================
+function renderReadinessPanel(d) {
+  const c = d.case_record;
+  // Only show for review-stage cases that are past processing
+  if (!c || c.case_stage === 'closed' || c.case_status === 'new' || c.case_status === 'processing') return '';
+
+  const readiness = getCaseReadiness(d);
+  const icons = { done: '&#10003;', pending: '&#9679;', missing: '&#10007;' };
+
+  const itemsHtml = readiness.items.map(i =>
+    `<div class="readiness-item ${i.status}">
+      <span class="ri-icon">${icons[i.status]}</span>
+      <span>${escHtml(i.label)}</span>
+      <span style="color:var(--text-muted);margin-left:auto;font-size:11px;">${escHtml(i.detail)}</span>
+    </div>`
+  ).join('');
+
+  const canClose = readiness.allDone && c.case_status !== 'closed';
+  const isClosed = c.case_status === 'closed';
+  const doneCount = readiness.items.filter(i => i.status === 'done').length;
+  const totalCount = readiness.items.length;
+
+  let actionHtml = '';
+  if (isClosed) {
+    actionHtml = '<span style="color:#9ca3af;font-size:12px;">&#10003; Case Closed</span>';
+  } else if (canClose) {
+    actionHtml = `<button class="btn-close-case" onclick="App.closeCase()">Close Case</button>`;
+  } else {
+    actionHtml = `<span style="color:var(--text-muted);font-size:11px;">${doneCount}/${totalCount} complete</span>`;
+  }
+
+  return `
+    <div class="readiness-panel">
+      <div class="readiness-title">
+        <span>Case Readiness</span>
+        ${actionHtml}
+      </div>
+      <div class="readiness-items">${itemsHtml}</div>
+    </div>`;
+}
+
+// ==================== RENDER: WORKSPACE ====================
+function renderWorkspace() {
+  const workspace = document.getElementById('workspace');
+  const d = state.caseData;
+
+  if (!d || !d.case_record) {
+    workspace.innerHTML = `<div class="no-case-view">
+      <div class="logo">&#9878;</div>
+      <div>Create or select a case to begin</div>
+    </div>`;
+    return;
+  }
+
+  const c = d.case_record;
+  const currentStageIdx = stageIndex(c.case_stage);
+
+  // Pipeline progress bar
+  const pipelineSteps = ['intake', 'parsing', 'chronology', 'letter', 'comms', 'review'];
+  let pipelineHtml = '<div class="pipeline-bar">';
+  pipelineSteps.forEach((step, i) => {
+    const stepIdx = stageIndex(step);
+    let cls = 'pending';
+    if (stepIdx < currentStageIdx) cls = 'done';
+    else if (stepIdx === currentStageIdx) cls = 'active';
+    pipelineHtml += `<div class="pipeline-step ${cls}">${STAGE_LABELS[step]}</div>`;
+    if (i < pipelineSteps.length - 1) pipelineHtml += '<span class="pipeline-arrow">&#9654;</span>';
+  });
+  pipelineHtml += '</div>';
+
+  // Stage tabs
+  const tabs = [
+    { key: 'intake', label: 'Intake Triage', data: d.triage },
+    { key: 'parsing', label: 'Credit Report', data: d.parsed },
+    { key: 'chronology', label: 'Chronology', data: d.chronology },
+    { key: 'letter', label: 'Dispute Letter', data: d.letter },
+    { key: 'comms', label: 'Communications', data: d.communications?.length > 0 },
+    { key: 'documents', label: 'Documents', data: d.documents?.length > 0 },
+    { key: 'activity', label: 'Activity Log', data: d.activity?.length > 0 }
+  ];
+
+  let tabsHtml = '<div class="stage-tabs">';
+  tabs.forEach(t => {
+    const active = t.key === state.currentTab ? 'active' : '';
+    const hasData = t.data ? 'has-data' : '';
+    tabsHtml += `<div class="stage-tab ${active} ${hasData}" onclick="App.switchTab('${t.key}')">${t.label}</div>`;
+  });
+  tabsHtml += '</div>';
+
+  // Stage content
+  let contentHtml = '';
+  switch (state.currentTab) {
+    case 'intake': contentHtml = renderIntakeTab(d); break;
+    case 'parsing': contentHtml = renderParserTab(d); break;
+    case 'chronology': contentHtml = renderChronologyTab(d); break;
+    case 'letter': contentHtml = renderLetterTab(d); break;
+    case 'comms': contentHtml = renderCommsTab(d); break;
+    case 'documents': contentHtml = renderDocumentsTab(d); break;
+    case 'activity': contentHtml = renderActivityTab(d); break;
+  }
+
+  workspace.innerHTML = `
+    <div class="case-detail">
+      <div class="case-detail-header">
+        <div>
+          <h2>${escHtml(c.client_name)}</h2>
+          <div class="case-id">${c.id}</div>
+        </div>
+        <div style="text-align:right;">
+          <span class="case-stage-badge ${getSmartBadge(c).css}" style="font-size:12px;padding:4px 12px;">${getSmartBadge(c).label}</span>
+        </div>
+      </div>
+      ${pipelineHtml}
+      ${renderReadinessPanel(d)}
+      ${tabsHtml}
+      <div class="draft-banner">DRAFT ANALYSIS &mdash; FOR ATTORNEY REVIEW ONLY</div>
+      ${contentHtml}
+    </div>
+  `;
+}
+
+// ==================== TAB RENDERERS ====================
+function renderIntakeTab(d) {
+  const t = d.triage;
+  if (!t) return '<div class="stage-content"><div class="stage-empty">Intake triage has not been completed yet.</div></div>';
+
+  const s = t.full_synthesis || {};
+  const viability = s.viability_assessment || {};
+
+  let html = '<div class="stage-content">';
+
+  html += `<div class="summary-cards">
+    <div class="summary-card clickable" onclick="App.showScore('viability')"><div class="card-value">${t.viability_score ?? '--'}</div><div class="card-label">Viability Score</div></div>
+    <div class="summary-card"><div class="card-value"><span class="badge badge-${t.priority_classification === 'high' ? 'critical' : t.priority_classification === 'medium' ? 'medium' : 'low'}">${escHtml(t.priority_classification || '--')}</span></div><div class="card-label">Priority</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('intake-confidence')"><div class="card-value">${t.confidence_score != null ? (Number(t.confidence_score) > 1 ? t.confidence_score : (Number(t.confidence_score) * 100).toFixed(0) + '%') : '--'}</div><div class="card-label">Confidence</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('strength')"><div class="card-value${(t.strength_rating || '').length > 10 ? ' card-value-sm' : ''}">${escHtml(t.strength_rating || '--')}</div><div class="card-label">Strength</div></div>
+  </div>`;
+
+  // Violation
+  if (t.violation_type) {
+    html += renderSection('FCRA Violation Analysis', `<ul class="result-list">
+      <li><span class="item-label">Violation Type</span><div class="item-value"><strong>${escHtml(t.violation_type)}</strong></div></li>
+      <li><span class="item-label">Case Category</span><div class="item-value">${escHtml(t.case_category || '--')}</div></li>
+      ${t.fcra_sections?.length ? `<li><span class="item-label">FCRA Sections</span><div class="item-value">${escHtml(t.fcra_sections.join(', '))}</div></li>` : ''}
+    </ul>`, true);
+  }
+
+  // SOL
+  if (t.sol_status) {
+    html += renderSection('Statute of Limitations', `<ul class="result-list">
+      <li><span class="item-label">Status</span><div class="item-value"><span class="badge badge-${t.sol_status === 'expired' ? 'critical' : t.sol_status === 'concern' ? 'high' : 'medium'}">${escHtml(t.sol_status)}</span></div></li>
+    </ul>`, true);
+  }
+
+  // Attorney actions
+  if (t.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${t.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  // Risk factors
+  if (t.risk_factors?.length) {
+    html += renderSection('Risk Factors', `<ul style="padding-left:20px;font-size:13px;color:#f87171;">
+      ${t.risk_factors.map(r => `<li style="margin-bottom:4px;">${escHtml(r)}</li>`).join('')}
+    </ul>`, true);
+  }
+
+  // Raw synthesis
+  if (t.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(t.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderParserTab(d) {
+  const p = d.parsed;
+  if (!p) return '<div class="stage-content"><div class="stage-empty">Credit report parsing has not been completed yet.</div></div>';
+
+  const s = p.full_synthesis || {};
+
+  let html = '<div class="stage-content">';
+
+  html += `<div class="summary-cards">
+    <div class="summary-card clickable" onclick="App.showScore('tradelines')"><div class="card-value">${p.tradeline_count ?? '--'}</div><div class="card-label">Tradelines</div></div>
+    <div class="summary-card"><div class="card-value">${p.total_errors ?? '--'}</div><div class="card-label">Errors</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('parser-confidence')"><div class="card-value">${p.confidence_score != null ? (Number(p.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  if (p.errors_found?.length) {
+    html += renderSection('Errors Found (' + p.errors_found.length + ')', `<div style="font-size:13px;">
+      ${p.errors_found.map(e => `<div style="background:rgba(239,68,68,0.06);border-left:3px solid ${e.severity === 'critical' ? '#ef4444' : '#f59e0b'};padding:12px 14px;margin:8px 0;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-weight:600;color:#e2e8f0;">${escHtml(e.tradeline || 'Unknown Tradeline')}</span>
+          <span class="badge badge-${e.severity || 'medium'}">${escHtml(e.severity || 'medium')}</span>
+        </div>
+        <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(e.description || e.error_description || 'No description')}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;">
+          <span style="color:#94a3b8;font-size:12px;"><strong>Type:</strong> ${escHtml((e.error_type || '').replace(/_/g, ' '))}</span>
+          ${e.fcra_section ? `<span style="color:#60a5fa;font-size:12px;"><strong>FCRA:</strong> ${escHtml(e.fcra_section)}</span>` : ''}
+          ${e.bureaus_affected?.length ? `<span style="color:#94a3b8;font-size:12px;"><strong>Bureaus:</strong> ${escHtml(e.bureaus_affected.join(', '))}</span>` : ''}
+        </div>
+      </div>`).join('')}
+    </div>`, true);
+  }
+
+  if (p.bureau_discrepancies?.length) {
+    html += renderSection('Bureau Discrepancies (' + p.bureau_discrepancies.length + ')', `<div style="font-size:13px;">
+      ${p.bureau_discrepancies.map(bd => {
+        if (typeof bd === 'string') return `<div style="padding:8px;margin:4px 0;">${escHtml(bd)}</div>`;
+        return `<div style="background:rgba(245,158,11,0.06);border-left:3px solid #fbbf24;padding:12px 14px;margin:8px 0;border-radius:6px;">
+          <div style="font-weight:600;color:#fbbf24;margin-bottom:8px;">${escHtml((bd.field || '').replace(/_/g, ' '))}</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
+            <div style="text-align:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+              <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Equifax</div>
+              <div style="color:#e2e8f0;font-size:12px;font-weight:500;">${escHtml(bd.equifax || '—')}</div>
+            </div>
+            <div style="text-align:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+              <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">Experian</div>
+              <div style="color:#e2e8f0;font-size:12px;font-weight:500;">${escHtml(bd.experian || '—')}</div>
+            </div>
+            <div style="text-align:center;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+              <div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">TransUnion</div>
+              <div style="color:#e2e8f0;font-size:12px;font-weight:500;">${escHtml(bd.transunion || '—')}</div>
+            </div>
+          </div>
+          ${bd.discrepancy ? `<div style="color:#cbd5e1;font-size:12px;">${escHtml(bd.discrepancy)}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`, true);
+  }
+
+  // === Case Strength ===
+  if (p.case_strength && typeof p.case_strength === 'object') {
+    const cs = p.case_strength;
+    const score = Number(cs.score) || 0;
+    const scoreColor = score >= 70 ? '#4ade80' : score >= 40 ? '#fbbf24' : '#f87171';
+    const factors = cs.factors || {};
+    html += renderSection('Case Strength Assessment', `<div style="font-size:13px;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+        <div style="width:64px;height:64px;border-radius:50%;border:3px solid ${scoreColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:22px;font-weight:700;color:${scoreColor};">${score}</span>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:600;color:${scoreColor};text-transform:uppercase;">${escHtml(cs.rating || 'Unknown')}</div>
+          <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Case viability score out of 100</div>
+        </div>
+      </div>
+      ${Object.keys(factors).length ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+        ${Object.entries(factors).map(([k, v]) => `<div style="background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:6px;">
+          <div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">${escHtml(k.replace(/_/g, ' '))}</div>
+          <div style="color:#e2e8f0;font-weight:600;">${escHtml(String(v))}</div>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`, true);
+  }
+
+  // === FCRA Violations ===
+  if (p.fcra_violations && typeof p.fcra_violations === 'object' && (p.fcra_violations.total_violations || 0) > 0) {
+    const fv = p.fcra_violations;
+    const sections = fv.by_section || {};
+    const explanations = fv.section_explanations || [];
+    html += renderSection('FCRA Violations (' + (fv.total_violations || 0) + ')', `<div style="font-size:13px;">
+      ${Object.entries(sections).map(([sec, count]) => {
+        const expl = explanations.find(e => e.section === sec);
+        return `<div style="background:rgba(239,68,68,0.06);border-left:3px solid #f87171;padding:12px 14px;margin:8px 0;border-radius:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-weight:600;color:#f87171;">${escHtml(sec)}</span>
+            <span class="badge badge-high" style="font-size:10px;">${count} violation${count > 1 ? 's' : ''}</span>
+          </div>
+          ${expl ? `<div style="font-weight:500;color:#e2e8f0;margin-bottom:4px;">${escHtml(expl.title || '')}</div>
+          <div style="color:#cbd5e1;font-size:12px;">${escHtml(expl.text || '')}</div>` : ''}
+        </div>`;
+      }).join('')}
+      ${fv.by_severity ? `<div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
+        ${Object.entries(fv.by_severity).filter(([,v]) => v > 0).map(([sev, cnt]) => {
+          const sc = sev === 'critical' ? '#ef4444' : sev === 'high' ? '#f87171' : sev === 'medium' ? '#fbbf24' : '#94a3b8';
+          return `<span class="badge" style="background:${sc}22;color:${sc};font-size:11px;padding:3px 10px;">${cnt} ${escHtml(sev)}</span>`;
+        }).join('')}
+      </div>` : ''}
+    </div>`, true);
+  }
+
+  // === Damages Assessment ===
+  if (p.damages_assessment && typeof p.damages_assessment === 'object' && p.damages_assessment.damages_type) {
+    const da = p.damages_assessment;
+    html += renderSection('Damages Assessment', `<div style="font-size:13px;">
+      <div style="background:rgba(59,130,246,0.06);border-left:3px solid #60a5fa;padding:14px;border-radius:6px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div><div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">Type</div><div style="color:#e2e8f0;font-weight:600;">${escHtml((da.damages_type || '').replace(/_/g, ' '))}</div></div>
+          <div><div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">Category</div><div style="color:#e2e8f0;font-weight:600;">${escHtml((da.case_category || '').replace(/_/g, ' '))}</div></div>
+          <div><div style="color:#94a3b8;font-size:11px;text-transform:uppercase;">Estimated Range</div><div style="color:#4ade80;font-weight:600;">${escHtml(da.damages_range || 'N/A')}</div></div>
+        </div>
+      </div>
+    </div>`, true);
+  }
+
+  // === Evidence Needed ===
+  if (p.evidence_needed?.length) {
+    const docs = d.documents || [];
+    const docKeywords = docs.map(doc => (doc.file_name || '').toLowerCase() + ' ' + (doc.document_type || '').toLowerCase());
+    html += renderSection('Evidence Needed', `<div style="font-size:13px;">
+      ${p.evidence_needed.map(ev => {
+        const evLower = ev.toLowerCase();
+        const hasDoc = docKeywords.some(dk => {
+          if (evLower.includes('credit report') && dk.includes('report')) return true;
+          if (evLower.includes('dispute') && dk.includes('dispute')) return true;
+          if (evLower.includes('denial') && dk.includes('denial')) return true;
+          return false;
+        });
+        const icon = hasDoc ? '<span style="color:#4ade80;">&#10003;</span>' : '<span style="color:#fbbf24;">&#9675;</span>';
+        const textColor = hasDoc ? 'color:#4ade80;' : 'color:#e2e8f0;';
+        return `<div style="padding:6px 0;display:flex;gap:8px;align-items:flex-start;">
+          ${icon} <span style="${textColor}">${escHtml(ev)}${hasDoc ? ' <span style="font-size:11px;color:#94a3b8;">(on file)</span>' : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`, true);
+  }
+
+  // === Attorney Action Items (filtered) ===
+  if (p.attorney_action_items?.length) {
+    const docs = d.documents || [];
+    const docNames = docs.map(doc => (doc.file_name || '').toLowerCase());
+    const filtered = p.attorney_action_items.filter(a => {
+      const al = a.toLowerCase();
+      if (al.includes('obtain') || al.includes('gather') || al.includes('collect') || al.includes('request copies')) {
+        if (al.includes('credit report') && docNames.some(n => n.includes('report'))) return false;
+        if (al.includes('dispute letter') && docNames.some(n => n.includes('dispute'))) return false;
+        if (al.includes('denial') && docNames.some(n => n.includes('denial'))) return false;
+      }
+      return true;
+    });
+    if (filtered.length) {
+      html += renderSection('Attorney Action Items (' + filtered.length + ')', `<ol style="padding-left:20px;font-size:13px;">
+        ${filtered.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+      </ol>`, true);
+    }
+  }
+
+  if (p.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(p.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderChronologyTab(d) {
+  const ch = d.chronology;
+  if (!ch) return '<div class="stage-content"><div class="stage-empty">Case chronology has not been built yet.</div></div>';
+
+  let html = '<div class="stage-content">';
+
+  const timeline = ch.chronology || [];
+  const violations = ch.violations_identified || [];
+  const gaps = ch.documentation_gaps || [];
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${Array.isArray(timeline) ? timeline.length : '--'}</div><div class="card-label">Events</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(violations) ? violations.length : '--'}</div><div class="card-label">Violations</div></div>
+    <div class="summary-card"><div class="card-value">${Array.isArray(gaps) ? gaps.filter(g => !(g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:'))).length : '--'}</div><div class="card-label">Missing Docs</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('chronology-confidence')"><div class="card-value">${ch.confidence_score != null ? (Number(ch.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  if (timeline.length) {
+    html += renderSection('Timeline (' + timeline.length + ' events)', `<ul class="result-list">
+      ${timeline.map(e => {
+        const eventText = (e.event || e.description || JSON.stringify(e)).replace(/\\n/g, '\n');
+        const lines = eventText.split('\n').filter(l => l.trim());
+        return `<li><span class="item-label">${escHtml(e.date || e.timestamp || '')}</span><div class="item-value">${lines.map(l => escHtml(l)).join('<br>')}</div></li>`;
+      }).join('')}
+    </ul>`, true);
+  }
+
+  if (gaps.length) {
+    const providedCount = gaps.filter(g => g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:')).length;
+    const missingCount = gaps.length - providedCount;
+    html += renderSection(`Documentation Gaps (${missingCount} Missing / ${providedCount} Provided)`, `<div style="font-size:13px;">${gaps.map(g => {
+      if (typeof g === 'string') return `<div style="color:var(--accent-amber);margin-bottom:4px;">&#8226; ${escHtml(g)}</div>`;
+      const isProvided = g.status === 'provided' || (g.gap || '').toLowerCase().startsWith('provided:');
+      const borderColor = isProvided ? '#4ade80' : (g.priority === 'high' ? '#f87171' : g.priority === 'medium' ? '#fbbf24' : '#94a3b8');
+      const bgColor = isProvided ? 'rgba(74,222,128,0.06)' : 'rgba(245,158,11,0.08)';
+      const titleColor = isProvided ? '#4ade80' : '#fbbf24';
+      const gapLabel = (g.gap || '').replace(/^(Provided|Missing):\s*/i, '').replace(/_/g, ' ');
+      const statusIcon = isProvided ? '<span style="color:#4ade80;font-size:14px;">&#10003;</span>' : '<span style="color:#fbbf24;font-size:14px;">&#9675;</span>';
+      return `<div style="background:${bgColor};border-left:3px solid ${borderColor};padding:10px 14px;margin:6px 0;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-weight:600;color:${titleColor};display:flex;align-items:center;gap:6px;">${statusIcon} ${escHtml(gapLabel)}</span>
+          <span class="badge" style="background:${borderColor}22;color:${borderColor};font-size:10px;padding:2px 8px;">${isProvided ? 'PROVIDED' : escHtml((g.priority || '').toUpperCase())}</span>
+        </div>
+        ${isProvided && g.provided_by ? `<div style="color:#4ade80;font-size:12px;margin-bottom:4px;">&#128206; ${escHtml(g.provided_by)}</div>` : ''}
+        ${g.fcra_section ? `<div style="color:#60a5fa;font-size:12px;margin-bottom:4px;">FCRA ${escHtml(g.fcra_section)}</div>` : ''}
+        <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(g.recommendation || '')}</div>
+        ${g.legal_significance ? `<div style="color:#94a3b8;font-size:12px;font-style:italic;">${escHtml(g.legal_significance)}</div>` : ''}
+        <button class="gap-upload-btn" onclick="App.triggerGapUpload('${escAttr(g.gap || '')}')">&#128206; Upload Document</button>
+      </div>`;
+    }).join('')}</div>`, true);
+  }
+
+  if (ch.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${ch.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(typeof a === 'string' ? a : JSON.stringify(a))}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  if (ch.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(ch.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderLetterTab(d) {
+  const l = d.letter;
+  if (!l) return '<div class="stage-content"><div class="stage-empty">Dispute letter has not been drafted yet.</div></div>';
+
+  let html = '<div class="stage-content">';
+
+  // Attorney approval actions
+  if (l.approval_status === 'pending') {
+    html += `<div class="attorney-actions">
+      <span class="label">Attorney Review Required</span>
+      <button class="btn btn-approve" onclick="App.approveStage('fcra_letters', '${l.id}')">Approve Letter</button>
+      <button class="btn btn-reject" onclick="App.requestChanges('fcra_letters', '${l.id}')">Request Changes</button>
+    </div>`;
+  } else if (l.approval_status === 'approved') {
+    html += `<div style="padding:10px 16px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:#4ade80;">
+      Approved by ${escHtml(l.approved_by || 'Attorney')} on ${formatDate(l.approved_at)}
+    </div>`;
+  } else if (l.approval_status === 'needs_changes') {
+    html += `<div class="needs-changes-banner">
+      <div class="banner-title">Changes Requested — Describe Revisions Below</div>
+      <textarea class="revision-textarea" id="letter-revision-notes" placeholder="Describe the changes needed for this letter...">${escHtml(l.revision_notes || '')}</textarea>
+      <div class="revision-actions" style="justify-content:flex-start;">
+        <button class="btn-regenerate" onclick="App.regenerateStage('letter')">Regenerate Letter with Revisions</button>
+        <button class="btn btn-secondary" style="font-size:12px;" onclick="App.approveStage('fcra_letters', '${l.id}')">Approve As-Is</button>
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${escHtml(l.letter_type || '--')}</div><div class="card-label">Letter Type</div></div>
+    <div class="summary-card"><div class="card-value">${escHtml(l.recipient_type || '--')}</div><div class="card-label">Recipient</div></div>
+    <div class="summary-card clickable" onclick="App.showScore('letter-confidence')"><div class="card-value">${l.confidence_score != null ? (Number(l.confidence_score) * 100).toFixed(0) + '%' : '--'}</div><div class="card-label">Confidence</div></div>
+  </div>`;
+
+  if (l.letter_body) {
+    html += renderSection('Letter Draft', `<div class="document-preview">${escHtml(l.letter_body)}</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="navigator.clipboard.writeText(${escAttr(JSON.stringify(l.letter_body))});App.setStatus('Copied')">Copy Letter Text</button>`, true);
+  }
+
+  if (l.fcra_citations?.length) {
+    html += renderSection('FCRA Citations', `<div style="font-size:13px;">${l.fcra_citations.map(c => {
+      if (typeof c === 'string') return `<span class="badge badge-medium" style="margin:2px;">${escHtml(c)}</span>`;
+      return `<div style="background:rgba(59,130,246,0.08);border-left:3px solid #60a5fa;padding:10px 14px;margin:6px 0;border-radius:6px;">
+        <div style="font-weight:600;color:#60a5fa;margin-bottom:4px;">${escHtml(c.full_citation || c.section || '')} — ${escHtml(c.title || '')}</div>
+        <div style="color:#cbd5e1;margin-bottom:4px;">${escHtml(c.text || '')}</div>
+        ${c.applies_when ? `<div style="color:#94a3b8;font-size:12px;"><strong>Applies when:</strong> ${escHtml(c.applies_when)}</div>` : ''}
+        ${c.remedies ? `<div style="color:#94a3b8;font-size:12px;"><strong>Remedies:</strong> ${escHtml(c.remedies)}</div>` : ''}
+      </div>`;
+    }).join('')}</div>`, true);
+  }
+
+  if (l.evidence_to_enclose?.length) {
+    html += renderSection('Evidence to Enclose', `<div style="font-size:13px;">
+      ${l.evidence_to_enclose.map(e => `<div style="background:rgba(245,158,11,0.08);border-left:3px solid #fbbf24;padding:10px 14px;margin:6px 0;border-radius:6px;">
+        <span style="color:#fbbf24;">\u2709</span> <span style="color:#e2e8f0;">${escHtml(typeof e === 'string' ? e : e.name || e.title || JSON.stringify(e))}</span>
+        ${typeof e === 'object' && e.description ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;">${escHtml(e.description)}</div>` : ''}
+      </div>`).join('')}
+    </div>`, true);
+  }
+
+  if (l.attorney_action_items?.length) {
+    html += renderSection('Attorney Action Items', `<ol style="padding-left:20px;font-size:13px;">
+      ${l.attorney_action_items.map(a => `<li style="margin-bottom:6px;">${escHtml(a)}</li>`).join('')}
+    </ol>`, true);
+  }
+
+  if (l.full_synthesis) {
+    html += renderSection('Full Synthesis (JSON)', `<div class="raw-json">${escHtml(JSON.stringify(l.full_synthesis, null, 2))}</div>`, false);
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderCommsTab(d) {
+  const comms = d.communications || [];
+  if (!comms.length) return '<div class="stage-content"><div class="stage-empty">No communications generated yet.</div></div>';
+
+  // Expanded type labels
+  const typeLabels = {
+    status_update: 'Status Update', pipeline_complete: 'Pipeline Complete',
+    review_ready: 'Review Notice', document_request: 'Document Request',
+    acknowledgment: 'Acknowledgment', dispute_filed: 'Dispute Filed',
+    investigation_timeline: 'Investigation Timeline', case_resolution: 'Case Resolution',
+    settlement_related: 'Settlement', demand_sent: 'Demand Sent', welcome: 'Welcome'
+  };
+
+  // Split comms into categories
+  const needsReview = comms.filter(c => c.requires_approval !== false && (c.approval_status === 'pending' || c.approval_status === 'needs_changes'));
+  const sendFailed = comms.filter(c => c.send_error && c.approval_status !== 'sent');
+  const sent = comms.filter(c => c.approval_status === 'sent');
+  const approved = comms.filter(c => c.approval_status === 'approved' && !c.send_error);
+
+  function buildCommCard(comm, showApproval) {
+    let approvalHtml = '';
+    if (showApproval) {
+      if (comm.approval_status === 'pending') {
+        approvalHtml = `<div class="attorney-actions" style="margin-top:12px;">
+          <span class="label">Review Required</span>
+          <button class="btn btn-approve" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve & Send</button>
+          <button class="btn btn-reject" onclick="App.requestChanges('fcra_communications', '${comm.id}')">Request Changes</button>
+        </div>`;
+      } else if (comm.approval_status === 'needs_changes') {
+        approvalHtml = `<div class="needs-changes-banner" style="margin-top:12px;">
+          <div class="banner-title">Changes Requested — Describe Revisions Below</div>
+          <textarea class="revision-textarea" id="comms-revision-notes-${comm.id}" placeholder="Describe the changes needed...">${escHtml(comm.revision_notes || '')}</textarea>
+          <div class="revision-actions" style="justify-content:flex-start;">
+            <button class="btn-regenerate" onclick="App.regenerateStage('comms')">Regenerate Communication</button>
+            <button class="btn btn-secondary" style="font-size:12px;" onclick="App.approveStage('fcra_communications', '${comm.id}')">Approve As-Is & Send</button>
+          </div>
+        </div>`;
+      }
+    }
+
+    let statusBadge = '';
+    if (comm.approval_status === 'sent') {
+      statusBadge = `<span class="comm-badge comm-badge-sent">Sent ${comm.sent_at ? formatShortDate(comm.sent_at) : ''}</span>`;
+    } else if (comm.send_error) {
+      statusBadge = `<span class="comm-badge comm-badge-failed">Send Failed</span>`;
+    } else if (comm.approval_status === 'approved') {
+      statusBadge = `<span class="comm-badge comm-badge-approved">Approved ${comm.approved_at ? formatShortDate(comm.approved_at) : ''}</span>`;
+    } else if (comm.requires_approval === false && comm.approval_status !== 'sent') {
+      statusBadge = `<span class="comm-badge comm-badge-auto">Auto-Send</span>`;
+    }
+
+    let actionItemsHtml = '';
+    const items = comm.client_action_items || [];
+    if (items.length) {
+      actionItemsHtml = `<div class="email-action-items">
+        <strong>Action Items — Documents Needed:</strong>
+        <ul>${items.map(item => `<li>${escHtml(typeof item === 'string' ? item : JSON.stringify(item))}</li>`).join('')}</ul>
+      </div>`;
+    }
+
+    let retryHtml = '';
+    if (comm.send_error) {
+      retryHtml = `<div style="margin-top:8px;">
+        <div style="font-size:11px;color:#f87171;margin-bottom:6px;">Error: ${escHtml(comm.send_error)}</div>
+        <button class="btn btn-approve" style="font-size:11px;" onclick="App.retrySend('${comm.id}')">Retry Send</button>
+      </div>`;
+    }
+
+    const headerLabel = typeLabels[comm.message_type] || comm.message_type || 'Communication';
+
+    return `<div class="email-preview">
+      <div class="email-header">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;color:var(--accent-gold);font-size:12px;">${escHtml(headerLabel)}</span>
+          ${statusBadge}
+        </div>
+        ${comm.subject_line ? `<div class="email-field" style="margin-top:6px;"><strong>Subject:</strong> ${escHtml(comm.subject_line)}</div>` : ''}
+      </div>
+      ${comm.greeting ? `<div class="email-greeting">${escHtml(comm.greeting)}</div>` : ''}
+      <div class="email-body">${escHtml(comm.message_body || '')}</div>
+      ${actionItemsHtml}
+      ${comm.closing ? `<div class="email-closing">${escHtml(comm.closing)}</div>` : ''}
+    </div>${approvalHtml}${retryHtml}`;
+  }
+
+  let html = '<div class="stage-content">';
+
+  // Section 1: Needs Review
+  if (needsReview.length) {
+    html += `<div class="comms-section-header">Awaiting Attorney Review (${needsReview.length})</div>`;
+    needsReview.forEach((comm, i) => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, true),
+        i === 0
+      );
+    });
+  }
+
+  // Section 2: Send Failed
+  if (sendFailed.length) {
+    html += `<div class="comms-section-header" style="color:#f87171;">Send Failed (${sendFailed.length})</div>`;
+    sendFailed.forEach(comm => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, false),
+        true
+      );
+    });
+  }
+
+  // Section 3: Approved (awaiting send)
+  if (approved.length) {
+    html += `<div class="comms-section-header" style="color:#4ade80;">Approved — Awaiting Send (${approved.length})</div>`;
+    approved.forEach(comm => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, false),
+        false
+      );
+    });
+  }
+
+  // Section 4: Sent (collapsed)
+  if (sent.length) {
+    html += `<div class="comms-section-header" style="color:#4ade80;">Sent Communications (${sent.length})</div>`;
+    sent.forEach(comm => {
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, false),
+        false
+      );
+    });
+  }
+
+  // Fallback: if no comms matched any section (e.g. all pending without requires_approval field)
+  const handled = new Set([...needsReview, ...sendFailed, ...approved, ...sent].map(c => c.id));
+  const other = comms.filter(c => !handled.has(c.id));
+  if (other.length) {
+    if (!needsReview.length && !sendFailed.length && !approved.length && !sent.length) {
+      html += `<div class="comms-section-header">Communications (${other.length})</div>`;
+    }
+    other.forEach((comm, i) => {
+      const showApproval = comm.approval_status === 'pending' || comm.approval_status === 'needs_changes';
+      html += renderSection(
+        `${escHtml(typeLabels[comm.message_type] || comm.message_type || 'Communication')} — ${formatShortDate(comm.created_at)}`,
+        buildCommCard(comm, showApproval),
+        i === 0 && !needsReview.length
+      );
+    });
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderActivityTab(d) {
+  const activity = d.activity || [];
+  if (!activity.length) return '<div class="stage-content"><div class="stage-empty">No activity recorded yet.</div></div>';
+
+  let html = '<div class="stage-content"><div class="activity-timeline"><h3>Activity Timeline</h3>';
+
+  activity.forEach(a => {
+    html += `<div class="activity-item">
+      <span class="time">${formatShortDate(a.created_at)}</span>
+      <span class="actor">${escHtml(a.actor || 'system')}</span>
+      <span class="summary">${escHtml(a.summary || a.activity_type)}</span>
+    </div>`;
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+// ==================== DOCUMENT UPLOAD ====================
+let pendingFiles = []; // files queued during intake
+
+function onErrorTypeChange(errorType) {
+  const section = document.getElementById('doc-upload-section');
+  const recsEl = document.getElementById('doc-recommendations');
+  if (!errorType || !ERROR_TYPE_DOCS[errorType]) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  const docs = ERROR_TYPE_DOCS[errorType];
+  recsEl.innerHTML = `<h4>Recommended Documents for ${errorType.replace(/_/g, ' ')}</h4>` +
+    docs.map(d => `<div class="doc-rec-item">
+      <span>${d.label}</span>
+      <span class="${d.required ? 'req-badge' : 'opt-badge'}">${d.required ? 'Required' : 'Optional'}</span>
+    </div>`).join('');
+}
+
+function handleFileSelect(event) {
+  const files = Array.from(event.target.files || []);
+  addPendingFiles(files);
+  event.target.value = '';
+}
+
+function handleFileDrop(event) {
+  const files = Array.from(event.dataTransfer.files || []);
+  addPendingFiles(files);
+}
+
+function addPendingFiles(files) {
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  for (const f of files) {
+    if (f.size > maxSize) { setStatus('File too large: ' + f.name + ' (max 10MB)'); continue; }
+    if (pendingFiles.some(p => p.name === f.name && p.size === f.size)) continue;
+    pendingFiles.push(f);
+  }
+  renderPendingFiles();
+}
+
+function removePendingFile(idx) {
+  pendingFiles.splice(idx, 1);
+  renderPendingFiles();
+}
+
+function renderPendingFiles() {
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  if (pendingFiles.length === 0) { list.innerHTML = ''; return; }
+  list.innerHTML = pendingFiles.map((f, i) => `<div class="upload-file-item">
+    <span class="doc-icon">&#128196;</span>
+    <span class="file-name">${escHtml(f.name)}</span>
+    <span class="file-size">${(f.size / 1024).toFixed(0)} KB</span>
+    <button class="remove-file" onclick="App.removePendingFile(${i})" title="Remove">&times;</button>
+  </div>`).join('');
+}
+
+async function uploadCaseDocuments(caseId, files, source = 'intake', gapRef = null) {
+  const results = [];
+  for (const file of files) {
+    const filePath = `${caseId}/${Date.now()}_${file.name}`;
+    const { error: uploadErr } = await supabase.storage
+      .from('case-documents')
+      .upload(filePath, file, { contentType: file.type, upsert: false });
+
+    if (uploadErr) {
+      console.error('Upload error:', uploadErr);
+      setStatus('Upload failed: ' + file.name);
+      continue;
+    }
+
+    // Guess document type from filename or default
+    let docType = 'supporting_docs';
+    const lower = file.name.toLowerCase();
+    if (lower.includes('credit') && lower.includes('report')) docType = 'credit_report';
+    else if (lower.includes('dispute')) docType = 'dispute_letter';
+    else if (lower.includes('police') || lower.includes('ftc')) docType = 'police_report';
+    else if (lower.includes('identity') || lower.includes('license') || lower.includes('ssn')) docType = 'identity_docs';
+    else if (lower.includes('statement')) docType = 'account_statements';
+    else if (lower.includes('background')) docType = 'background_report';
+    else if (lower.includes('adverse')) docType = 'adverse_action';
+    else if (lower.includes('medical') || lower.includes('eob')) docType = 'medical_records';
+
+    const { error: metaErr } = await supabase.from('fcra_case_documents').insert({
+      case_id: caseId,
+      document_type: docType,
+      file_name: file.name,
+      file_path: filePath,
+      file_size: file.size,
+      mime_type: file.type || 'application/octet-stream',
+      upload_source: source,
+      gap_reference: gapRef,
+      uploaded_by: 'dashboard'
+    });
+
+    if (metaErr) console.error('Metadata insert error:', metaErr);
+    else results.push({ file_name: file.name, file_path: filePath });
+  }
+  return results;
+}
+
+// Gap-specific upload (from chronology gap cards)
+function triggerGapUpload(gapTitle) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.csv';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setStatus('Uploading documents for gap: ' + gapTitle + '...');
+    const results = await uploadCaseDocuments(state.currentCaseId, files, 'gap_resolution', gapTitle);
+    if (results.length) {
+      setStatus(results.length + ' document(s) uploaded for gap resolution');
+      // Log activity
+      await supabase.from('fcra_case_activity').insert({
+        case_id: state.currentCaseId,
+        activity_type: 'document_upload',
+        stage: 'chronology',
+        actor: 'dashboard',
+        summary: 'Uploaded ' + results.length + ' doc(s) to resolve gap: ' + gapTitle,
+        details: { gap: gapTitle, files: results.map(r => r.file_name) }
+      });
+      // Refresh case data
+      state.caseData = await fetchCaseDetail(state.currentCaseId);
+      renderWorkspace();
+    }
+  };
+  input.click();
+}
+
+// ==================== RENDER: DOCUMENTS TAB ====================
+function renderDocumentsTab(d) {
+  const docs = d.documents || [];
+  let html = '<div class="stage-content">';
+
+  // Upload + Re-Analyze buttons
+  html += `<div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+    <button class="btn btn-primary" onclick="App.triggerDocUpload()" style="font-size:13px;padding:8px 16px;">
+      &#128206; Upload Documents
+    </button>
+    ${docs.length ? `<button class="btn btn-secondary" onclick="App.triggerReanalysis()" style="font-size:13px;padding:8px 16px;">
+      &#128269; Re-Analyze with Documents
+    </button>` : ''}
+  </div>`;
+
+  if (!docs.length) {
+    html += '<div class="stage-empty">No documents uploaded yet. Use the button above or upload from gap cards in the Chronology tab.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  html += `<div class="summary-cards">
+    <div class="summary-card"><div class="card-value">${docs.length}</div><div class="card-label">Total Documents</div></div>
+    <div class="summary-card"><div class="card-value">${docs.filter(d => d.upload_source === 'intake').length}</div><div class="card-label">From Intake</div></div>
+    <div class="summary-card"><div class="card-value">${docs.filter(d => d.upload_source === 'gap_resolution').length}</div><div class="card-label">Gap Resolutions</div></div>
+  </div>`;
+
+  docs.forEach(doc => {
+    const { data: urlData } = supabase.storage.from('case-documents').getPublicUrl(doc.file_path);
+    const publicUrl = urlData?.publicUrl || '#';
+    const icon = doc.mime_type?.includes('pdf') ? '&#128211;' :
+                 doc.mime_type?.includes('image') ? '&#128247;' :
+                 doc.mime_type?.includes('word') || doc.mime_type?.includes('document') ? '&#128196;' : '&#128196;';
+    const srcBadgeColor = doc.upload_source === 'gap_resolution' ? '#60a5fa' : '#4ade80';
+    const srcLabel = doc.upload_source === 'gap_resolution' ? 'Gap' : doc.upload_source === 'intake' ? 'Intake' : doc.upload_source;
+
+    html += `<div class="doc-card">
+      <span class="doc-icon">${icon}</span>
+      <div class="doc-info">
+        <div class="doc-name">${escHtml(doc.file_name)}</div>
+        <div class="doc-meta">
+          ${escHtml(doc.document_type.replace(/_/g, ' '))} &middot;
+          ${doc.file_size ? (doc.file_size / 1024).toFixed(0) + ' KB' : ''} &middot;
+          ${formatShortDate(doc.created_at)}
+          ${doc.gap_reference ? ` &middot; Gap: ${escHtml(doc.gap_reference)}` : ''}
+        </div>
+      </div>
+      <span class="badge" style="background:${srcBadgeColor}22;color:${srcBadgeColor};font-size:10px;">${srcLabel}</span>
+      <a href="${publicUrl}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;padding:4px 10px;text-decoration:none;">View</a>
+    </div>`;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function triggerDocUpload() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.csv';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setStatus('Uploading ' + files.length + ' document(s)...');
+    const results = await uploadCaseDocuments(state.currentCaseId, files, 'client');
+    if (results.length) {
+      setStatus(results.length + ' document(s) uploaded');
+      await supabase.from('fcra_case_activity').insert({
+        case_id: state.currentCaseId,
+        activity_type: 'document_upload',
+        stage: 'documents',
+        actor: 'dashboard',
+        summary: 'Uploaded ' + results.length + ' document(s)',
+        details: { files: results.map(r => r.file_name) }
+      });
+      state.caseData = await fetchCaseDetail(state.currentCaseId);
+      renderWorkspace();
+    }
+  };
+  input.click();
+}
+
+async function triggerReanalysis() {
+  if (state.isSubmitting) return;
+  if (!confirm('Re-analyze this case with all uploaded documents?\n\nThis will replace existing parser, chronology, letter, and communication outputs with new analysis based on the uploaded documents.')) return;
+
+  state.isSubmitting = true;
+  setStatus('Starting re-analysis pipeline...');
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000); // 5 min
+
+    const resp = await fetch(N8N_BASE_URL + '/webhook/fcra-reanalyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ case_id: state.currentCaseId }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    const result = await resp.json();
+    if (result.case_id) {
+      setStatus('Re-analysis complete (' + (result.stages_completed?.length || 0) + ' stages, ' + (result.doc_count || 0) + ' documents analyzed)');
+    } else {
+      setStatus('Re-analysis returned unexpected result');
+    }
+  } catch (err) {
+    setStatus(err.name === 'AbortError' ? 'Re-analysis timed out (pipeline may still be running in background)' : 'Re-analysis error: ' + err.message);
+  } finally {
+    state.isSubmitting = false;
+    state.caseData = await fetchCaseDetail(state.currentCaseId);
+    renderWorkspace();
+  }
+}
+
+// ==================== SECTION HELPER ====================
+function renderSection(title, content, startOpen = false) {
+  return `<div class="result-section">
+    <div class="result-section-header ${startOpen ? 'open' : ''}" onclick="toggleSection(this)">
+      ${escHtml(title)}
+      <span class="toggle-icon">&#9654;</span>
+    </div>
+    <div class="result-section-body ${startOpen ? 'open' : ''}">${content}</div>
+  </div>`;
+}
+
+// ==================== INIT ====================
+async function init() {
+  document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Test Supabase connection
+  const { data, error } = await supabase.from('fcra_cases').select('id').limit(1);
+  const connEl = document.getElementById('connection-status');
+  if (error) {
+    connEl.innerHTML = '<span class="connection-dot disconnected"></span><span style="font-size:11px;color:var(--status-error);">DB disconnected</span>';
+    setStatus('Supabase connection failed: ' + error.message);
+  } else {
+    connEl.innerHTML = '<span class="connection-dot connected"></span><span style="font-size:11px;color:var(--status-complete);">Connected</span>';
+  }
+
+  // Load cases
+  state.cases = await fetchCases();
+  renderCaseList();
+
+  // Subscribe to realtime changes
+  subscribeToChanges();
+
+  setStatus('Ready');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// ==================== SCORE DETAIL MODALS ====================
+
+function closeScoreDetail() {
+  const el = document.querySelector('.score-modal-overlay');
+  if (el) el.remove();
+}
+
+function showScoreDetail(title, contentHtml) {
+  closeScoreDetail();
+  const overlay = document.createElement('div');
+  overlay.className = 'score-modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeScoreDetail(); };
+  overlay.innerHTML = '<div class="score-modal">' +
+    '<button class="score-modal-close" onclick="App.closeScoreDetail()">&times;</button>' +
+    '<h3>' + title + '</h3>' +
+    contentHtml +
+    '</div>';
+  document.body.appendChild(overlay);
+}
+
+function _barRow(label, value, max) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return '<div class="score-bar-row">' +
+    '<span class="score-bar-label">' + label.replace(/_/g, ' ') + '</span>' +
+    '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<span class="score-bar-value">' + value + '/' + max + '</span></div>';
+}
+
+function _pctBar(label, value) {
+  const pct = Math.min(100, Math.round((Number(value) || 0) * 100));
+  return '<div class="score-bar-row">' +
+    '<span class="score-bar-label">' + label.replace(/_/g, ' ') + '</span>' +
+    '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<span class="score-bar-value">' + pct + '%</span></div>';
+}
+
+function _statRow(label, val) {
+  return '<div class="score-stat-row"><span class="score-stat-label">' + label + '</span><span class="score-stat-value">' + val + '</span></div>';
+}
+
+const ELEMENTS = ['notice', 'damages', 'inaccuracy', 'documentation', 'failure_to_investigate'];
+const NO_DATA = '<div class="score-no-data">No breakdown data available</div>';
+
+function showScore(key) {
+  const d = state.caseData;
+  if (!d) return;
+  const builders = {
+    'viability': function() {
+      const va = d.triage?.full_synthesis?.viability_assessment;
+      if (!va) return { title: 'Viability Score', html: NO_DATA };
+      let h = '';
+      if (va.score != null || va.viability_score != null) {
+        const s = va.score ?? va.viability_score;
+        h += _statRow('Score', s + ' / 100');
+        h += _barRow('Overall', Number(s) || 0, 100);
+      }
+      if (va.rating) h += _statRow('Rating', va.rating);
+      if (va.element_breakdown) {
+        h += '<div class="score-section-title">Element Breakdown (each scored 0-20)</div>';
+        const eb = va.element_breakdown;
+        ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
+        const total = ELEMENTS.reduce(function(s, k) { return s + (Number(eb[k]) || 0); }, 0);
+        h += _statRow('Total', total + ' / 100');
+      }
+      return { title: 'Viability Score', html: h || NO_DATA };
+    },
+    'intake-confidence': function() {
+      const fs = d.triage?.full_synthesis;
+      const t = d.triage;
+      if (!fs && !t) return { title: 'Triage Confidence', html: NO_DATA };
+      let h = '';
+      // Show the actual confidence score (how confident the AI triage is)
+      const cs = t?.confidence_score ?? fs?.confidence_score;
+      if (cs != null) {
+        var pct = Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs);
+        h += _statRow('Confidence Score', pct + '%');
+        h += _barRow('Confidence', pct, 100);
+      }
+      // Show viability score for context
+      const vs = t?.viability_score ?? fs?.viability_assessment?.viability_score;
+      if (vs != null) h += _statRow('Viability Score', vs + ' / 100');
+      const sr = t?.strength_rating ?? fs?.viability_assessment?.strength_rating;
+      if (sr) h += _statRow('Case Strength', sr);
+      return { title: 'Triage Confidence', html: h || NO_DATA };
+    },
+    'strength': function() {
+      const va = d.triage?.full_synthesis?.viability_assessment;
+      if (!va) return { title: 'Case Strength', html: NO_DATA };
+      let h = '';
+      if (va.overall_score != null || va.score != null || va.viability_score != null) {
+        const s = va.overall_score ?? va.score ?? va.viability_score;
+        h += _statRow('Overall Score', s + ' / 100');
+        h += _barRow('Overall', Number(s) || 0, 100);
+      }
+      if (va.rating || va.strength_rating) h += _statRow('Rating', va.rating || va.strength_rating);
+      if (va.element_breakdown) {
+        h += '<div class="score-section-title">Element Breakdown</div>';
+        const eb = va.element_breakdown;
+        ELEMENTS.forEach(function(k) { h += _barRow(k, Number(eb[k]) || 0, 20); });
+      }
+      return { title: 'Case Strength', html: h || NO_DATA };
+    },
+    'tradelines': function() {
+      const fs = d.parsed?.full_synthesis;
+      if (!fs) return { title: 'Tradeline Details', html: NO_DATA };
+      const ts = fs.tradeline_summary;
+      let h = '';
+      if (ts) {
+        var stats = [
+          ['Total Balance', ts.total_balance != null ? '$' + Number(ts.total_balance).toLocaleString() : null],
+          ['Derogatory Accounts', ts.derogatory_accounts],
+          ['Total Late Payments', ts.total_late_payments],
+          ['Total Tradelines', ts.total_tradelines],
+          ['Open Accounts', ts.open_accounts]
+        ];
+        stats.forEach(function(pair) { if (pair[1] != null) h += _statRow(pair[0], pair[1]); });
+      }
+      if (!h && fs.error_classification) {
+        var ec = fs.error_classification;
+        if (ec.total != null) h += _statRow('Total Errors', ec.total);
+        if (ec.primary_type) h += _statRow('Primary Type', ec.primary_type.replace(/_/g, ' '));
+      }
+      if (!h && fs.case_summary) h += _statRow('Summary', fs.case_summary);
+      return { title: 'Tradeline Details', html: h || NO_DATA };
+    },
+    'parser-confidence': function() {
+      const fs = d.parsed?.full_synthesis;
+      const p = d.parsed;
+      if (!fs && !p) return { title: 'Parser Confidence', html: NO_DATA };
+      let h = '';
+      // Show actual confidence score first (how confident the parser is)
+      const cs = p?.confidence_score ?? fs?.confidence_score;
+      if (cs != null) {
+        var pct = Number(cs) <= 1 ? Math.round(Number(cs) * 100) : Number(cs);
+        h += _statRow('Confidence Score', pct + '%');
+        h += _barRow('Confidence', pct, 100);
+      }
+      // Show error classification as context
+      if (fs?.error_classification) {
+        h += '<div class="score-section-title">Error Classification</div>';
+        var ec = fs.error_classification;
+        if (ec.total != null) h += _statRow('Total Errors', ec.total);
+        if (ec.primary_type) h += _statRow('Primary Type', ec.primary_type.replace(/_/g, ' '));
+      }
+      // Show case strength as separate section (not as the main confidence metric)
+      if (fs?.case_strength) {
+        h += '<div class="score-section-title">Case Strength (from parser)</div>';
+        var str = fs.case_strength;
+        if (str.rating) h += _statRow('Rating', str.rating);
+        if (str.score != null) h += _barRow('Strength Score', Number(str.score) || 0, 100);
+        if (str.factors) {
+          [['High Errors', str.factors.high_errors], ['Critical Errors', str.factors.critical_errors],
+           ['Bureau Discrepancies', str.factors.bureau_discrepancies], ['Mixed File Risk', str.factors.mixed_file_risk]
+          ].forEach(function(pair) { if (pair[1] != null) h += _statRow(pair[0], pair[1]); });
+        }
+      }
+      return { title: 'Parser Confidence', html: h || NO_DATA };
+    },
+    'chronology-confidence': function() {
+      const fs = d.chronology?.full_synthesis;
+      if (!fs) return { title: 'Chronology Confidence', html: NO_DATA };
+      const csi = fs.case_strength_indicators;
+      let h = '';
+      if (csi) {
+        h += '<div class="score-section-title">Strength Indicators (0-100%)</div>';
+        ['overall_strength', 'violation_severity', 'documentation_score', 'timeline_completeness'].forEach(function(k) {
+          if (csi[k] != null) h += _pctBar(k, csi[k]);
+        });
+        if (csi.strength_rating) h += _statRow('Strength Rating', csi.strength_rating);
+      } else {
+        if (fs.confidence_score != null) {
+          var pct = Number(fs.confidence_score) <= 1 ? Math.round(Number(fs.confidence_score) * 100) : Number(fs.confidence_score);
+          h += _statRow('Score', pct + '%');
+          h += _barRow('Confidence', pct, 100);
+        }
+        if (fs.chronology) h += _statRow('Timeline', fs.chronology);
+        if (fs.case_summary) h += _statRow('Summary', fs.case_summary);
+      }
+      return { title: 'Chronology Confidence', html: h || NO_DATA };
+    },
+    'letter-confidence': function() {
+      const fs = d.letter?.full_synthesis;
+      if (!fs) return { title: 'Letter Confidence', html: NO_DATA };
+      const csi = fs.case_strength_indicators;
+      const ca = fs.compliance_assessment;
+      let h = '';
+      if (csi) {
+        h += '<div class="score-section-title">Quality Indicators (0-100%)</div>';
+        ['overall_strength', 'template_quality', 'citation_coverage', 'compliance_score'].forEach(function(k) {
+          if (csi[k] != null) h += _pctBar(k, csi[k]);
+        });
+      }
+      if (ca?.compliance_checks) {
+        h += '<div class="score-section-title">Compliance Checks</div>';
+        Object.entries(ca.compliance_checks).forEach(function(pair) {
+          var icon = pair[1]
+            ? '<span class="score-check-icon" style="color:#4ade80">&#10003;</span>'
+            : '<span class="score-check-icon" style="color:#f87171">&#10007;</span>';
+          h += '<div class="score-check-row">' + icon + '<span>' + pair[0].replace(/_/g, ' ') + '</span></div>';
+        });
+      }
+      if (!csi && !ca) {
+        if (fs.confidence_score != null) {
+          var pct = Number(fs.confidence_score) <= 1 ? Math.round(Number(fs.confidence_score) * 100) : Number(fs.confidence_score);
+          h += _statRow('Score', pct + '%');
+          h += _barRow('Confidence', pct, 100);
+        }
+        if (fs.draft_notice) h += _statRow('Status', fs.draft_notice);
+        if (fs.case_summary) h += _statRow('Summary', fs.case_summary);
+      }
+      return { title: 'Letter Confidence', html: h || NO_DATA };
+    }
+  };
+  const builder = builders[key];
+  if (!builder) return;
+  const result = builder();
+  showScoreDetail(result.title, result.html);
+}
+
+// ==================== PUBLIC API ====================
+return {
+  showIntakeForm,
+  submitIntake,
+  selectCase,
+  switchTab,
+  approveStage,
+  requestChanges,
+  closeRevisionModal,
+  closeDuplicateModal,
+  confirmUniqueCase,
+  submitRevisionRequest,
+  regenerateStage,
+  retrySend,
+  setStatus,
+  onErrorTypeChange,
+  handleFileSelect,
+  handleFileDrop,
+  removePendingFile,
+  triggerGapUpload,
+  triggerDocUpload,
+  triggerReanalysis,
+  showScore,
+  closeScoreDetail,
+  closeCase,
+  filterByBadge
+};
+
+})(); // end IIFE
+
+// Global DOM helpers
+function toggleSection(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+</script>
+</body>
+</html>
