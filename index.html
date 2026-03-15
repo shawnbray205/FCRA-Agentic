@@ -1579,6 +1579,9 @@ function getCaseReadiness(d) {
       status: sentComms === totalComms ? 'done' : approvedComms > 0 ? 'pending' : 'missing',
       detail: `${sentComms}/${totalComms}`
     });
+  } else if (comms.length > 0) {
+    // All comms are auto-approved system messages (requires_approval: false) — count as done
+    items.push({ label: 'Client communications sent', status: 'done', detail: 'Auto-sent' });
   } else {
     items.push({ label: 'Client communications generated', status: 'missing', detail: 'None' });
   }
