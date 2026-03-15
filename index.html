@@ -1077,6 +1077,41 @@ const STATUS_LABELS = {
   closed: 'Closed', duplicate_closed: 'Duplicate (Closed)'
 };
 
+// Smart badge: combines stage + status into one clear label
+function getSmartBadge(c) {
+  const stage = c.case_stage;
+  const status = c.case_status;
+
+  // Status-driven states (override stage)
+  if (status === 'closed' || status === 'duplicate_closed')
+    return { label: status === 'closed' ? 'Closed' : 'Duplicate', css: 'status-closed' };
+  if (status === 'ready_to_close')
+    return { label: 'Ready to Close', css: 'status-ready_to_close' };
+  if (status === 'needs_changes')
+    return { label: 'Needs Changes', css: 'status-needs_changes' };
+  if (status === 'approved')
+    return { label: 'Approved', css: 'status-approved' };
+  if (status === 'awaiting_review')
+    return { label: 'Awaiting Review', css: 'status-awaiting_review' };
+  if (status === 'reanalysis_in_progress')
+    return { label: 'Re-Analyzing', css: 'status-reanalysis_in_progress' };
+
+  // Stage-driven states (during pipeline processing)
+  if (status === 'processing' || status === 'new') {
+    const stageMap = {
+      intake: { label: 'Intake', css: 'stage-intake' },
+      parsing: { label: 'Parsing', css: 'stage-parsing' },
+      chronology: { label: 'Building Chronology', css: 'stage-chronology' },
+      letter: { label: 'Generating Letter', css: 'stage-letter' },
+      comms: { label: 'Generating Comms', css: 'stage-comms' },
+      review: { label: 'Processing', css: 'status-processing' }
+    };
+    return stageMap[stage] || { label: STATUS_LABELS[status] || status, css: 'status-processing' };
+  }
+
+  return { label: STATUS_LABELS[status] || status, css: 'status-processing' };
+}
+
 // ==================== ERROR-TYPE DOCUMENT MAP ====================
 const ERROR_TYPE_DOCS = {
   inaccurate_information: [
@@ -1849,8 +1884,7 @@ function renderCaseList() {
           <span class="priority-${c.priority || 'medium'}" style="font-size:11px;">${c.priority || ''}</span>
         </div>
         <div class="case-meta">
-          <span class="case-stage-badge stage-${c.case_stage}">${STAGE_LABELS[c.case_stage] || c.case_stage}</span>
-          <span class="case-status-badge status-${c.case_status}">${STATUS_LABELS[c.case_status] || c.case_status}</span>
+          <span class="case-stage-badge ${getSmartBadge(c).css}">${getSmartBadge(c).label}</span>
           &middot; ${formatShortDate(c.updated_at)}
         </div>
       </div>
@@ -1967,8 +2001,7 @@ function renderWorkspace() {
           <div class="case-id">${c.id}</div>
         </div>
         <div style="text-align:right;">
-          <span class="case-stage-badge stage-${c.case_stage}">${STAGE_LABELS[c.case_stage] || c.case_stage}</span>
-          <span class="case-status-badge status-${c.case_status}" style="margin-left:6px;">${STATUS_LABELS[c.case_status] || c.case_status}</span>
+          <span class="case-stage-badge ${getSmartBadge(c).css}" style="font-size:12px;padding:4px 12px;">${getSmartBadge(c).label}</span>
         </div>
       </div>
       ${pipelineHtml}
