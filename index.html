@@ -160,6 +160,20 @@ body {
 
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
+#badge-filter {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  appearance: auto;
+}
+#badge-filter:focus { outline: 1px solid var(--accent-gold); border-color: var(--accent-gold); }
+
 #case-list {
   flex: 1;
   overflow-y: auto;
@@ -1023,6 +1037,7 @@ body {
     <div class="sidebar-header">
       <h2>Cases</h2>
       <button class="btn btn-primary" onclick="App.showIntakeForm()">+ New Case</button>
+      <select id="badge-filter" onchange="App.filterByBadge(this.value)"></select>
     </div>
     <div id="case-list"></div>
   </aside>
@@ -1175,7 +1190,8 @@ let state = {
   currentTab: 'intake',
   caseData: null,  // full joined data for selected case
   isSubmitting: false,
-  realtimeChannel: null
+  realtimeChannel: null,
+  badgeFilter: 'all'
 };
 
 // ==================== SUPABASE QUERIES ====================
@@ -1870,15 +1886,47 @@ async function regenerateStage(stage) {
 }
 
 // ==================== RENDER: CASE LIST ====================
+function filterByBadge(value) {
+  state.badgeFilter = value;
+  renderCaseList();
+}
+
 function renderCaseList() {
   const container = document.getElementById('case-list');
 
-  if (state.cases.length === 0) {
-    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">No cases yet</div>';
+  // Build badge counts and populate filter dropdown dynamically
+  const badgeCounts = {};
+  state.cases.forEach(c => {
+    const label = getSmartBadge(c).label;
+    badgeCounts[label] = (badgeCounts[label] || 0) + 1;
+  });
+
+  const filterEl = document.getElementById('badge-filter');
+  if (filterEl) {
+    const BADGE_ORDER = [
+      'Intake', 'Parsing', 'Building Chronology', 'Generating Letter', 'Generating Comms',
+      'Processing', 'Re-Analyzing', 'Awaiting Review', 'Needs Changes', 'Approved',
+      'Ready to Close', 'Closed', 'Duplicate'
+    ];
+    const prev = state.badgeFilter;
+    filterEl.innerHTML = `<option value="all">All Statuses (${state.cases.length})</option>` +
+      BADGE_ORDER.filter(b => badgeCounts[b]).map(b =>
+        `<option value="${b}" ${prev === b ? 'selected' : ''}>${b} (${badgeCounts[b]})</option>`
+      ).join('');
+  }
+
+  // Apply badge filter
+  const filtered = state.badgeFilter === 'all'
+    ? state.cases
+    : state.cases.filter(c => getSmartBadge(c).label === state.badgeFilter);
+
+  if (filtered.length === 0) {
+    const msg = state.cases.length === 0 ? 'No cases yet' : 'No cases match filter';
+    container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">${msg}</div>`;
     return;
   }
 
-  container.innerHTML = state.cases.map(c => {
+  container.innerHTML = filtered.map(c => {
     const isActive = c.id === state.currentCaseId;
     return `
       <div class="case-item ${isActive ? 'active' : ''}" onclick="App.selectCase('${c.id}')">
@@ -3086,7 +3134,8 @@ return {
   triggerReanalysis,
   showScore,
   closeScoreDetail,
-  closeCase
+  closeCase,
+  filterByBadge
 };
 
 })(); // end IIFE
