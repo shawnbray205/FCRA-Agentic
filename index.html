@@ -214,6 +214,77 @@ body {
 .stage-review { background: rgba(34,197,94,0.2); color: #4ade80; }
 .stage-closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
 
+/* Status badges */
+.case-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-new { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.status-processing { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.status-reanalysis_in_progress { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.status-awaiting_review { background: rgba(249,115,22,0.2); color: #fb923c; }
+.status-approved { background: rgba(34,197,94,0.2); color: #4ade80; }
+.status-needs_changes { background: rgba(239,68,68,0.2); color: #f87171; }
+.status-ready_to_close { background: rgba(20,184,166,0.2); color: #2dd4bf; }
+.status-closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
+.status-duplicate_closed { background: rgba(107,114,128,0.2); color: #9ca3af; }
+
+/* Readiness checklist */
+.readiness-panel {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 0;
+}
+.readiness-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.readiness-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
+.readiness-item {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.readiness-item.done { color: #4ade80; }
+.readiness-item.pending { color: #fb923c; }
+.readiness-item.missing { color: #f87171; }
+.readiness-item .ri-icon { font-size: 14px; flex-shrink: 0; }
+.btn-close-case {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.btn-close-case:hover { opacity: 0.9; }
+.btn-close-case:disabled {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .priority-urgent { color: #ef4444; font-weight: 700; }
 .priority-high { color: #f59e0b; font-weight: 600; }
 .priority-medium { color: var(--text-secondary); }
@@ -999,6 +1070,12 @@ const STAGE_LABELS = {
   intake: 'Intake', parsing: 'Parser', chronology: 'Chronology',
   letter: 'Letter', comms: 'Comms', review: 'Review', closed: 'Closed'
 };
+const STATUS_LABELS = {
+  new: 'New', processing: 'Processing', reanalysis_in_progress: 'Re-Analyzing',
+  awaiting_review: 'Awaiting Review', approved: 'Approved',
+  needs_changes: 'Needs Changes', ready_to_close: 'Ready to Close',
+  closed: 'Closed', duplicate_closed: 'Duplicate (Closed)'
+};
 
 // ==================== ERROR-TYPE DOCUMENT MAP ====================
 const ERROR_TYPE_DOCS = {
@@ -1077,7 +1154,7 @@ async function fetchCases() {
 }
 
 async function fetchCaseDetail(caseId) {
-  const [caseRes, triageRes, parsedRes, chronRes, letterRes, commsRes, activityRes, docsRes] = await Promise.all([
+  const [caseRes, triageRes, parsedRes, chronRes, letterRes, commsRes, activityRes, docsRes, gapsRes] = await Promise.all([
     supabase.from('fcra_cases').select('*').eq('id', caseId).single(),
     supabase.from('fcra_triage_results').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
     supabase.from('fcra_parsed_reports').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
@@ -1085,7 +1162,8 @@ async function fetchCaseDetail(caseId) {
     supabase.from('fcra_letters').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(1),
     supabase.from('fcra_communications').select('*').eq('case_id', caseId).order('created_at', { ascending: false }),
     supabase.from('fcra_case_activity').select('*').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50),
-    supabase.from('fcra_case_documents').select('*').eq('case_id', caseId).order('created_at', { ascending: false })
+    supabase.from('fcra_case_documents').select('*').eq('case_id', caseId).order('created_at', { ascending: false }),
+    supabase.from('fcra_case_gaps').select('*').eq('case_id', caseId)
   ]);
 
   return {
@@ -1096,7 +1174,8 @@ async function fetchCaseDetail(caseId) {
     letter: letterRes.data?.[0] || null,
     communications: commsRes.data || [],
     activity: activityRes.data || [],
-    documents: docsRes.data || []
+    documents: docsRes.data || [],
+    gaps: gapsRes.data || []
   };
 }
 
@@ -1427,6 +1506,135 @@ function switchTab(tab) {
   renderWorkspace();
 }
 
+// ==================== CASE READINESS ====================
+function getCaseReadiness(d) {
+  const items = [];
+  const letters = d.letter ? [d.letter] : [];
+  const comms = d.communications || [];
+  const gaps = d.gaps || [];
+
+  // Letters
+  const totalLetters = letters.length;
+  const approvedLetters = letters.filter(l => l.approval_status === 'approved' || l.approval_status === 'sent').length;
+  const sentLetters = letters.filter(l => l.approval_status === 'sent').length;
+
+  if (totalLetters > 0) {
+    items.push({
+      label: `Dispute letter${totalLetters > 1 ? 's' : ''} approved`,
+      status: approvedLetters === totalLetters ? 'done' : 'pending',
+      detail: `${approvedLetters}/${totalLetters}`
+    });
+    items.push({
+      label: `Dispute letter${totalLetters > 1 ? 's' : ''} sent`,
+      status: sentLetters === totalLetters ? 'done' : approvedLetters > 0 ? 'pending' : 'missing',
+      detail: `${sentLetters}/${totalLetters}`
+    });
+  } else {
+    items.push({ label: 'Dispute letter generated', status: 'missing', detail: 'None' });
+  }
+
+  // Communications
+  const reviewableComms = comms.filter(c => c.requires_approval !== false);
+  const totalComms = reviewableComms.length;
+  const approvedComms = reviewableComms.filter(c => c.approval_status === 'approved' || c.approval_status === 'sent').length;
+  const sentComms = reviewableComms.filter(c => c.approval_status === 'sent').length;
+
+  if (totalComms > 0) {
+    items.push({
+      label: `Client comm${totalComms > 1 ? 's' : ''} approved`,
+      status: approvedComms === totalComms ? 'done' : 'pending',
+      detail: `${approvedComms}/${totalComms}`
+    });
+    items.push({
+      label: `Client comm${totalComms > 1 ? 's' : ''} sent`,
+      status: sentComms === totalComms ? 'done' : approvedComms > 0 ? 'pending' : 'missing',
+      detail: `${sentComms}/${totalComms}`
+    });
+  } else {
+    items.push({ label: 'Client communications generated', status: 'missing', detail: 'None' });
+  }
+
+  // Chronology
+  items.push({
+    label: 'Timeline built',
+    status: d.chronology ? 'done' : 'missing',
+    detail: d.chronology ? 'Complete' : 'Not yet'
+  });
+
+  // Documents / Gaps
+  const criticalGaps = gaps.filter(g => g.priority === 'critical' && g.status !== 'provided');
+  items.push({
+    label: 'Critical document gaps',
+    status: criticalGaps.length === 0 ? 'done' : 'missing',
+    detail: criticalGaps.length === 0 ? 'None remaining' : `${criticalGaps.length} outstanding`
+  });
+
+  const allDone = items.every(i => i.status === 'done');
+  return { items, allDone };
+}
+
+async function checkReadyToClose() {
+  const d = state.caseData;
+  if (!d || !d.case_record) return;
+  const c = d.case_record;
+
+  // Only auto-promote from approved → ready_to_close
+  if (c.case_status !== 'approved') return;
+
+  const readiness = getCaseReadiness(d);
+  if (readiness.allDone) {
+    await supabase.from('fcra_cases').update({
+      case_status: 'ready_to_close'
+    }).eq('id', state.currentCaseId);
+
+    await supabase.from('fcra_case_activity').insert({
+      case_id: state.currentCaseId,
+      activity_type: 'ready_to_close',
+      stage: 'review',
+      actor: 'system',
+      summary: 'All items complete — case is ready to close'
+    });
+
+    state.caseData = await fetchCaseDetail(state.currentCaseId);
+    state.cases = await fetchCases();
+    renderCaseList();
+    setStatus('All items complete — case is ready to close');
+  }
+}
+
+async function closeCase() {
+  const d = state.caseData;
+  if (!d || !d.case_record) return;
+
+  const readiness = getCaseReadiness(d);
+  if (!readiness.allDone) {
+    const pending = readiness.items.filter(i => i.status !== 'done').map(i => i.label).join(', ');
+    setStatus('Cannot close — pending items: ' + pending);
+    return;
+  }
+
+  if (!confirm('Close this case? This marks it as fully resolved.')) return;
+
+  await supabase.from('fcra_cases').update({
+    case_status: 'closed',
+    case_stage: 'closed'
+  }).eq('id', state.currentCaseId);
+
+  await supabase.from('fcra_case_activity').insert({
+    case_id: state.currentCaseId,
+    activity_type: 'case_closed',
+    stage: 'closed',
+    actor: 'attorney',
+    summary: 'Case closed by attorney'
+  });
+
+  state.caseData = await fetchCaseDetail(state.currentCaseId);
+  state.cases = await fetchCases();
+  renderCaseList();
+  renderWorkspace();
+  setStatus('Case closed successfully');
+}
+
 // ==================== ATTORNEY ACTIONS ====================
 async function approveStage(table, recordId) {
   const { error } = await supabase
@@ -1473,6 +1681,8 @@ async function approveStage(table, recordId) {
 
   // Auto-promote case to approved if all reviewable outputs are approved/sent
   await checkCaseApproval();
+  // Check if case is ready to close (all items sent)
+  await checkReadyToClose();
 
   renderWorkspace();
 }
@@ -1646,11 +1856,53 @@ function renderCaseList() {
         </div>
         <div class="case-meta">
           <span class="case-stage-badge stage-${c.case_stage}">${STAGE_LABELS[c.case_stage] || c.case_stage}</span>
-          &middot; ${escHtml(c.case_status)} &middot; ${formatShortDate(c.updated_at)}
+          <span class="case-status-badge status-${c.case_status}">${STATUS_LABELS[c.case_status] || c.case_status}</span>
+          &middot; ${formatShortDate(c.updated_at)}
         </div>
       </div>
     `;
   }).join('');
+}
+
+// ==================== RENDER: READINESS PANEL ====================
+function renderReadinessPanel(d) {
+  const c = d.case_record;
+  // Only show for review-stage cases that are past processing
+  if (!c || c.case_stage === 'closed' || c.case_status === 'new' || c.case_status === 'processing') return '';
+
+  const readiness = getCaseReadiness(d);
+  const icons = { done: '&#10003;', pending: '&#9679;', missing: '&#10007;' };
+
+  const itemsHtml = readiness.items.map(i =>
+    `<div class="readiness-item ${i.status}">
+      <span class="ri-icon">${icons[i.status]}</span>
+      <span>${escHtml(i.label)}</span>
+      <span style="color:var(--text-muted);margin-left:auto;font-size:11px;">${escHtml(i.detail)}</span>
+    </div>`
+  ).join('');
+
+  const canClose = readiness.allDone && c.case_status !== 'closed';
+  const isClosed = c.case_status === 'closed';
+  const doneCount = readiness.items.filter(i => i.status === 'done').length;
+  const totalCount = readiness.items.length;
+
+  let actionHtml = '';
+  if (isClosed) {
+    actionHtml = '<span style="color:#9ca3af;font-size:12px;">&#10003; Case Closed</span>';
+  } else if (canClose) {
+    actionHtml = `<button class="btn-close-case" onclick="App.closeCase()">Close Case</button>`;
+  } else {
+    actionHtml = `<span style="color:var(--text-muted);font-size:11px;">${doneCount}/${totalCount} complete</span>`;
+  }
+
+  return `
+    <div class="readiness-panel">
+      <div class="readiness-title">
+        <span>Case Readiness</span>
+        ${actionHtml}
+      </div>
+      <div class="readiness-items">${itemsHtml}</div>
+    </div>`;
 }
 
 // ==================== RENDER: WORKSPACE ====================
@@ -1722,10 +1974,11 @@ function renderWorkspace() {
         </div>
         <div style="text-align:right;">
           <span class="case-stage-badge stage-${c.case_stage}">${STAGE_LABELS[c.case_stage] || c.case_stage}</span>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${escHtml(c.case_status)}</div>
+          <span class="case-status-badge status-${c.case_status}" style="margin-left:6px;">${STATUS_LABELS[c.case_status] || c.case_status}</span>
         </div>
       </div>
       ${pipelineHtml}
+      ${renderReadinessPanel(d)}
       ${tabsHtml}
       <div class="draft-banner">DRAFT ANALYSIS &mdash; FOR ATTORNEY REVIEW ONLY</div>
       ${contentHtml}
@@ -2802,7 +3055,8 @@ return {
   triggerDocUpload,
   triggerReanalysis,
   showScore,
-  closeScoreDetail
+  closeScoreDetail,
+  closeCase
 };
 
 })(); // end IIFE
