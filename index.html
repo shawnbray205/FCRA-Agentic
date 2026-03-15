@@ -1534,6 +1534,7 @@ async function executeIntakeSubmission(payload) {
 
     if (caseErr) throw new Error('Failed to create case: ' + caseErr.message);
     const caseId = caseData.id;
+    const docCount = pendingFiles.length;
     console.log('Case created:', caseId);
     setStatus('Case created. Uploading documents...');
 
@@ -1563,6 +1564,22 @@ async function executeIntakeSubmission(payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, case_id: caseId })
     }).catch(err => console.warn('Pipeline trigger (non-blocking):', err.message));
+
+    // Notify attorney via Slack (fire-and-forget)
+    fetch(N8N_BASE_URL + '/webhook/fcra-notify-attorney', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        case_id: caseId,
+        event_type: 'case_created',
+        slack_channel: 'C0ALL3596BG',
+        priority: payload.priority || 'medium',
+        details: {
+          complaint_summary: payload.complaint_summary || '',
+          document_count: docCount || 0
+        }
+      })
+    }).catch(err => console.warn('Slack notification (non-blocking):', err.message));
 
     setStatus('Case created & documents uploaded. Pipeline processing in background.');
 
@@ -1753,6 +1770,23 @@ async function closeCase() {
     actor: 'attorney',
     summary: 'Case closed by attorney'
   });
+
+  // Notify attorney via Slack (fire-and-forget)
+  const viabilityOverride = viabilityScore > 0 && viabilityScore < 76;
+  fetch(N8N_BASE_URL + '/webhook/fcra-notify-attorney', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      case_id: state.currentCaseId,
+      event_type: 'case_closed',
+      slack_channel: 'C0ALL3596BG',
+      priority: 'normal',
+      details: {
+        closed_by: 'Attorney (Dashboard)',
+        viability_override: viabilityOverride
+      }
+    })
+  }).catch(err => console.warn('Slack notification (non-blocking):', err.message));
 
   state.caseData = await fetchCaseDetail(state.currentCaseId);
   state.cases = await fetchCases();
