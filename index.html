@@ -1614,6 +1614,13 @@ function switchTab(tab) {
 }
 
 // ==================== CASE READINESS ====================
+// Best viability score: prefer parsed report case_strength (updated by re-analysis) over intake triage
+function getBestViabilityScore(d) {
+  const parserScore = Number(d.parsed?.case_strength?.score) || 0;
+  const triageScore = Number(d.triage?.viability_score) || 0;
+  return parserScore > 0 ? parserScore : triageScore;
+}
+
 function getCaseReadiness(d) {
   const items = [];
   const letters = d.letter ? [d.letter] : [];
@@ -1673,8 +1680,8 @@ function getCaseReadiness(d) {
     detail: criticalGaps.length === 0 ? 'None remaining' : `${criticalGaps.length} outstanding`
   });
 
-  // Viability threshold
-  const viabilityScore = Number(d.triage?.viability_score) || 0;
+  // Viability threshold — use best available score (parser > triage)
+  const viabilityScore = getBestViabilityScore(d);
   if (viabilityScore > 0) {
     const vg = getViabilityGuidance(viabilityScore);
     items.push({
@@ -1736,7 +1743,7 @@ async function closeCase() {
   }
 
   // Viability threshold check — require Strong (76+) or attorney override
-  const viabilityScore = Number(d.triage?.viability_score) || 0;
+  const viabilityScore = getBestViabilityScore(d);
   if (viabilityScore > 0 && viabilityScore < 76) {
     const guidance = getViabilityGuidance(viabilityScore);
     const override = confirm(
