@@ -1767,11 +1767,28 @@ async function closeCase() {
     summary: 'Case closed by attorney'
   });
 
+  // Trigger audit doc generation (fire-and-forget)
+  try {
+    const auditPayload = {
+      action: 'generate_case_doc',
+      payload: {
+        case_id: state.currentCaseId,
+        client_name: d.case_record.client_name,
+        closed_by: 'Attorney (via Dashboard)'
+      }
+    };
+    fetch('https://sbray205.app.n8n.cloud/webhook/fcra-audit-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(auditPayload)
+    }).catch(function() {});
+  } catch(e) {}
+
   state.caseData = await fetchCaseDetail(state.currentCaseId);
   state.cases = await fetchCases();
   renderCaseList();
   renderWorkspace();
-  setStatus('Case closed successfully');
+  setStatus('Case closed — audit report generating...');
 }
 
 // ==================== ATTORNEY ACTIONS ====================
